@@ -36,15 +36,16 @@ public class DashboardServlet extends HttpServlet {
         request.setAttribute("toplamHemsire", hemsireler.size());
         request.setAttribute("bugun", bugun);
 
-        // Hemşire kategorilerine göre sayım
+        // Hemşire tecrübe seviyelerine göre sayım
+        // Yeni 3 seviye kullanıldı: Tecrübesiz, Orta Tecrübeli, Tecrübeli
         long tecrubesizSayisi = hemsireler.stream()
-                .filter(h -> h.getTecrube() != null && "T0".equals(h.getTecrube().getKategoriKodu()))
+                .filter(h -> h.getTecrubeSeviyesi() != null && "Tecrübesiz".equals(h.getTecrubeSeviyesi()))
                 .count();
         long ortaTecrubeliSayisi = hemsireler.stream()
-                .filter(h -> h.getTecrube() != null && "T2".equals(h.getTecrube().getKategoriKodu()))
+                .filter(h -> h.getTecrubeSeviyesi() != null && "Orta Tecrübeli".equals(h.getTecrubeSeviyesi()))
                 .count();
         long tecrubeliSayisi = hemsireler.stream()
-                .filter(h -> h.getTecrube() != null && "T3".equals(h.getTecrube().getKategoriKodu()))
+                .filter(h -> h.getTecrubeSeviyesi() != null && "Tecrübeli".equals(h.getTecrubeSeviyesi()))
                 .count();
 
         request.setAttribute("tecrubesizSayisi", tecrubesizSayisi);

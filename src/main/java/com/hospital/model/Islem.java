@@ -11,8 +11,8 @@ public class Islem {
     private int islemId;
     private int birimId;
     private int sureDakika;
-    private String islemTipi; // DIRECT, INDIRECT
-    private String kritiklik; // CRITICAL, NON_CRITICAL
+    private String islemTipi; // ACİL, RUTİN vb.
+    private String kritiklik; // YÜKSEK, ORTA, DÜŞÜK vb.
     private String notlar;
     private Timestamp kayitTarihi;
     private int kaydedenKullaniciId;
@@ -23,7 +23,6 @@ public class Islem {
     private Birim birim;
     private Kullanici kaydedenKullanici;
 
-    // Constructors
     public Islem() {}
 
     public Islem(Date tarih, int hemsireId, int islemId, int birimId, int sureDakika,
@@ -37,7 +36,7 @@ public class Islem {
         this.kritiklik = kritiklik;
     }
 
-    // Getters and Setters
+    // Getters ve Setters
     public int getId() { return id; }
     public void setId(int id) { this.id = id; }
     public int getKayitIndeksi() { return kayitIndeksi; }
@@ -63,7 +62,6 @@ public class Islem {
     public int getKaydedenKullaniciId() { return kaydedenKullaniciId; }
     public void setKaydedenKullaniciId(int kaydedenKullaniciId) { this.kaydedenKullaniciId = kaydedenKullaniciId; }
 
-    // İlişkili objeler için getters ve setters
     public Hemsire getHemsire() { return hemsire; }
     public void setHemsire(Hemsire hemsire) { this.hemsire = hemsire; }
     public IslemTuru getIslemTuru() { return islemTuru; }

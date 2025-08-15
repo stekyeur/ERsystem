@@ -16,10 +16,10 @@ import java.util.List;
 import com.google.gson.Gson;
 
 public class IslemKayitServlet extends HttpServlet {
-    private IslemDAO islemDAO = new IslemDAO();
-    private HemsireDAO hemsireDAO = new HemsireDAO();
-    private IslemTuruDAO islemTuruDAO = new IslemTuruDAO();
-    private BirimDAO birimDAO = new BirimDAO();
+    private final IslemDAO islemDAO = new IslemDAO();
+    private final HemsireDAO hemsireDAO = new HemsireDAO();
+    private final IslemTuruDAO islemTuruDAO = new IslemTuruDAO();
+    private final BirimDAO birimDAO = new BirimDAO();
 
     @Override
     protected void doGet(HttpServletRequest request, HttpServletResponse response)
@@ -32,7 +32,6 @@ public class IslemKayitServlet extends HttpServlet {
             return;
         }
 
-        // Form için gerekli verileri yükle
         request.setAttribute("hemsireler", hemsireDAO.findAll());
         request.setAttribute("islemTurleri", islemTuruDAO.findAll());
         request.setAttribute("birimler", birimDAO.findAll());
@@ -51,28 +50,24 @@ public class IslemKayitServlet extends HttpServlet {
         }
 
         try {
-            // Form verilerini al
             String tarihStr = request.getParameter("tarih");
-            int hemsireId = Integer.parseInt(request.getParameter("hemsire"));
-            int islemId = Integer.parseInt(request.getParameter("islem"));
-            int birimId = Integer.parseInt(request.getParameter("birim"));
-            int sureDakika = Integer.parseInt(request.getParameter("sure"));
-            String islemTipi = request.getParameter("islemTipi");
+            int hemsireId = Integer.parseInt(request.getParameter("hemsire_id"));
+            int islemId = Integer.parseInt(request.getParameter("islem_id"));
+            int birimId = Integer.parseInt(request.getParameter("birim_id"));
+            int sureDakika = Integer.parseInt(request.getParameter("sure_dakika"));
+            String islemTipi = request.getParameter("islem_tipi");
             String kritiklik = request.getParameter("kritiklik");
             String notlar = request.getParameter("notlar");
 
-            // Tarih dönüşümü
             SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd");
             Date tarih = new Date(sdf.parse(tarihStr).getTime());
 
-            // İşlem objesi oluştur
             Islem islem = new Islem(tarih, hemsireId, islemId, birimId, sureDakika, islemTipi, kritiklik);
             islem.setNotlar(notlar);
 
             Kullanici kullanici = (Kullanici) session.getAttribute("kullanici");
             islem.setKaydedenKullaniciId(kullanici.getId());
 
-            // Kaydet
             boolean basarili = islemDAO.create(islem);
 
             if (basarili) {
@@ -86,7 +81,6 @@ public class IslemKayitServlet extends HttpServlet {
             request.setAttribute("hata", "Geçersiz veri girişi: " + e.getMessage());
         }
 
-        // Form verilerini tekrar yükle
         request.setAttribute("hemsireler", hemsireDAO.findAll());
         request.setAttribute("islemTurleri", islemTuruDAO.findAll());
         request.setAttribute("birimler", birimDAO.findAll());

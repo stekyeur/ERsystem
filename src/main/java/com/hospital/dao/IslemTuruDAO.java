@@ -11,11 +11,12 @@ public class IslemTuruDAO {
 
     public List<IslemTuru> findAll() {
         List<IslemTuru> islemler = new ArrayList<>();
-        String sql = "SELECT * FROM acil_islem_turleri WHERE aktif = 1 ORDER BY islem_adi";
+        String sql = "SELECT id, islem_adi, kategori, ortalama_sure, aktif " +
+                "FROM islem_kategorileri WHERE aktif = TRUE ORDER BY islem_adi";
 
         try (Connection conn = DatabaseConnection.getConnection();
-             Statement stmt = conn.createStatement();
-             ResultSet rs = stmt.executeQuery(sql)) {
+             PreparedStatement pstmt = conn.prepareStatement(sql);
+             ResultSet rs = pstmt.executeQuery()) {
 
             while (rs.next()) {
                 islemler.add(mapResultSetToIslemTuru(rs));
@@ -27,7 +28,8 @@ public class IslemTuruDAO {
     }
 
     public IslemTuru findById(int id) {
-        String sql = "SELECT * FROM acil_islem_turleri WHERE id = ?";
+        String sql = "SELECT id, islem_adi, kategori, ortalama_sure, aktif " +
+                "FROM islem_kategorileri WHERE id = ?";
 
         try (Connection conn = DatabaseConnection.getConnection();
              PreparedStatement ps = conn.prepareStatement(sql)) {
@@ -44,14 +46,15 @@ public class IslemTuruDAO {
         return null;
     }
 
-    public List<IslemTuru> findByTip(String islemTipi) {
+    public List<IslemTuru> findByKategori(String kategori) {
         List<IslemTuru> islemler = new ArrayList<>();
-        String sql = "SELECT * FROM acil_islem_turleri WHERE aktif = 1 AND islem_tipi = ? ORDER BY islem_adi";
+        String sql = "SELECT id, islem_adi, kategori, ortalama_sure, aktif " +
+                "FROM islem_kategorileri WHERE aktif = TRUE AND kategori = ? ORDER BY islem_adi";
 
         try (Connection conn = DatabaseConnection.getConnection();
              PreparedStatement ps = conn.prepareStatement(sql)) {
 
-            ps.setString(1, islemTipi);
+            ps.setString(1, kategori);
             ResultSet rs = ps.executeQuery();
 
             while (rs.next()) {
@@ -66,11 +69,9 @@ public class IslemTuruDAO {
     private IslemTuru mapResultSetToIslemTuru(ResultSet rs) throws SQLException {
         IslemTuru islem = new IslemTuru();
         islem.setId(rs.getInt("id"));
-        islem.setIslemKodu(rs.getString("islem_kodu"));
         islem.setIslemAdi(rs.getString("islem_adi"));
-        islem.setIslemTipi(rs.getString("islem_tipi"));
-        islem.setStandartSureDk(rs.getInt("standart_sure_dk"));
-        islem.setAciklama(rs.getString("aciklama"));
+        islem.setKategori(rs.getString("kategori"));
+        islem.setOrtalamaSure(rs.getInt("ortalama_sure"));
         islem.setAktif(rs.getBoolean("aktif"));
         return islem;
     }

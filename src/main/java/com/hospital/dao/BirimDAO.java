@@ -11,12 +11,11 @@ public class BirimDAO {
 
     public List<Birim> findAll() {
         List<Birim> birimler = new ArrayList<>();
-        String sql = "SELECT * FROM acil_birimler WHERE aktif = 1 ORDER BY birim_adi";
+        String sql = "SELECT birim_id, birim_adi, aktif FROM birimler WHERE aktif = TRUE ORDER BY birim_adi";
 
         try (Connection conn = DatabaseConnection.getConnection();
-             Statement stmt = conn.createStatement();
-             ResultSet rs = stmt.executeQuery(sql)) {
-
+             PreparedStatement pstmt = conn.prepareStatement(sql);
+             ResultSet rs = pstmt.executeQuery()) {
             while (rs.next()) {
                 birimler.add(mapResultSetToBirim(rs));
             }
@@ -26,36 +25,14 @@ public class BirimDAO {
         return birimler;
     }
 
-    public Birim findById(int id) {
-        String sql = "SELECT * FROM acil_birimler WHERE id = ?";
-
-        try (Connection conn = DatabaseConnection.getConnection();
-             PreparedStatement ps = conn.prepareStatement(sql)) {
-
-            ps.setInt(1, id);
-            ResultSet rs = ps.executeQuery();
-
-            if (rs.next()) {
-                return mapResultSetToBirim(rs);
-            }
-        } catch (SQLException e) {
-            e.printStackTrace();
-        }
-        return null;
-    }
-
     public List<Birim> findByIslemId(int islemId) {
         List<Birim> birimler = new ArrayList<>();
-        String sql = "SELECT b.* FROM acil_birimler b " +
-                "INNER JOIN acil_islem_birim_iliski ibi ON b.id = ibi.birim_id " +
-                "WHERE b.aktif = 1 AND ibi.islem_id = ? ORDER BY b.birim_adi";
+        // Eğer birim_islemler tablosu yoksa, tüm birimleri döndür
+        String sql = "SELECT birim_id, birim_adi, aktif FROM birimler WHERE aktif = TRUE ORDER BY birim_adi";
 
         try (Connection conn = DatabaseConnection.getConnection();
-             PreparedStatement ps = conn.prepareStatement(sql)) {
-
-            ps.setInt(1, islemId);
-            ResultSet rs = ps.executeQuery();
-
+             PreparedStatement ps = conn.prepareStatement(sql);
+             ResultSet rs = ps.executeQuery()) {
             while (rs.next()) {
                 birimler.add(mapResultSetToBirim(rs));
             }
@@ -67,11 +44,8 @@ public class BirimDAO {
 
     private Birim mapResultSetToBirim(ResultSet rs) throws SQLException {
         Birim birim = new Birim();
-        birim.setId(rs.getInt("id"));
-        birim.setBirimKodu(rs.getString("birim_kodu"));
+        birim.setBirimId(rs.getInt("birim_id"));
         birim.setBirimAdi(rs.getString("birim_adi"));
-        birim.setKapasite(rs.getInt("kapasite"));
-        birim.setAciklama(rs.getString("aciklama"));
         birim.setAktif(rs.getBoolean("aktif"));
         return birim;
     }

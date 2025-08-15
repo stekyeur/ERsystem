@@ -12,10 +12,9 @@ public class HemsireDAO {
 
     public List<Hemsire> findAll() {
         List<Hemsire> hemsireler = new ArrayList<>();
-        String sql = "SELECT h.*, ht.kategori_kodu, ht.kategori_adi " +
-                "FROM acil_hemsire h " +
-                "LEFT JOIN acil_hemsire_tecrube ht ON h.tecrube_id = ht.id " +
-                "WHERE h.aktif = 1 ORDER BY h.ad_soyad";
+        String sql = "SELECT hemsire_id, personel_no, ad_soyad, tecrube_seviyesi, kurum_id, aktif, " +
+                "ise_giris_tarihi, olusturma_tarihi, guncelleme_tarihi " +
+                "FROM hemsireler WHERE aktif = TRUE ORDER BY ad_soyad";
 
         try (Connection conn = DatabaseConnection.getConnection();
              Statement stmt = conn.createStatement();
@@ -31,10 +30,9 @@ public class HemsireDAO {
     }
 
     public Hemsire findById(int id) {
-        String sql = "SELECT h.*, ht.kategori_kodu, ht.kategori_adi " +
-                "FROM acil_hemsire h " +
-                "LEFT JOIN acil_hemsire_tecrube ht ON h.tecrube_id = ht.id " +
-                "WHERE h.id = ?";
+        String sql = "SELECT hemsire_id, personel_no, ad_soyad, tecrube_seviyesi, kurum_id, aktif, " +
+                "ise_giris_tarihi, olusturma_tarihi, guncelleme_tarihi " +
+                "FROM hemsireler WHERE hemsire_id = ?";
 
         try (Connection conn = DatabaseConnection.getConnection();
              PreparedStatement ps = conn.prepareStatement(sql)) {
@@ -52,19 +50,23 @@ public class HemsireDAO {
     }
 
     public boolean create(Hemsire hemsire) {
-        String sql = "INSERT INTO acil_hemsire (sicil_no, ad_soyad, tecrube_id, bolum, telefon, email, ise_giris_tarihi) " +
-                "VALUES (?, ?, ?, ?, ?, ?, ?)";
+        String sql = "INSERT INTO hemsireler (personel_no, ad_soyad, tecrube_seviyesi, kurum_id, aktif, ise_giris_tarihi) " +
+                "VALUES (?, ?, ?, ?, ?, ?)";
 
         try (Connection conn = DatabaseConnection.getConnection();
              PreparedStatement ps = conn.prepareStatement(sql)) {
 
-            ps.setString(1, hemsire.getSicilNo());
+            ps.setString(1, hemsire.getPersonelNo());
             ps.setString(2, hemsire.getAdSoyad());
-            ps.setInt(3, hemsire.getTecrubeId());
-            ps.setString(4, hemsire.getBolum());
-            ps.setString(5, hemsire.getTelefon());
-            ps.setString(6, hemsire.getEmail());
-            ps.setDate(7, (Date) hemsire.getIseGirisTarihi());
+            ps.setString(3, hemsire.getTecrubeSeviyesi());
+            ps.setInt(4, hemsire.getKurumId());
+            ps.setBoolean(5, hemsire.isAktif());
+
+            if (hemsire.getIseGirisTarihi() != null) {
+                ps.setDate(6, new Date(hemsire.getIseGirisTarihi().getTime()));
+            } else {
+                ps.setNull(6, Types.DATE);
+            }
 
             return ps.executeUpdate() > 0;
         } catch (SQLException e) {
@@ -73,48 +75,17 @@ public class HemsireDAO {
         return false;
     }
 
-    public List<Hemsire> findByTecrubeKategorisi(String kategoriKodu) {
-        List<Hemsire> hemsireler = new ArrayList<>();
-        String sql = "SELECT h.*, ht.kategori_kodu, ht.kategori_adi " +
-                "FROM acil_hemsire h " +
-                "INNER JOIN acil_hemsire_tecrube ht ON h.tecrube_id = ht.id " +
-                "WHERE h.aktif = 1 AND ht.kategori_kodu = ? ORDER BY h.ad_soyad";
-
-        try (Connection conn = DatabaseConnection.getConnection();
-             PreparedStatement ps = conn.prepareStatement(sql)) {
-
-            ps.setString(1, kategoriKodu);
-            ResultSet rs = ps.executeQuery();
-
-            while (rs.next()) {
-                hemsireler.add(mapResultSetToHemsire(rs));
-            }
-        } catch (SQLException e) {
-            e.printStackTrace();
-        }
-        return hemsireler;
-    }
-
     private Hemsire mapResultSetToHemsire(ResultSet rs) throws SQLException {
         Hemsire hemsire = new Hemsire();
-        hemsire.setId(rs.getInt("id"));
-        hemsire.setSicilNo(rs.getString("sicil_no"));
+        hemsire.setHemsireId(rs.getInt("hemsire_id"));
+        hemsire.setPersonelNo(rs.getString("personel_no"));
         hemsire.setAdSoyad(rs.getString("ad_soyad"));
-        hemsire.setTecrubeId(rs.getInt("tecrube_id"));
-        hemsire.setBolum(rs.getString("bolum"));
-        hemsire.setTelefon(rs.getString("telefon"));
-        hemsire.setEmail(rs.getString("email"));
-        hemsire.setIseGirisTarihi(rs.getDate("ise_giris_tarihi"));
+        hemsire.setTecrubeSeviyesi(rs.getString("tecrube_seviyesi"));
+        hemsire.setKurumId(rs.getInt("kurum_id"));
         hemsire.setAktif(rs.getBoolean("aktif"));
-
-        // Tecrübe bilgisi
-        if (rs.getString("kategori_kodu") != null) {
-            HemsireTecrube tecrube = new HemsireTecrube();
-            tecrube.setKategoriKodu(rs.getString("kategori_kodu"));
-            tecrube.setKategoriAdi(rs.getString("kategori_adi"));
-            hemsire.setTecrube(tecrube);
-        }
-
+        hemsire.setIseGirisTarihi(rs.getDate("ise_giris_tarihi"));
+        hemsire.setOlusturmaTarihi(rs.getTimestamp("olusturma_tarihi"));
+        hemsire.setGuncellemeTarihi(rs.getTimestamp("guncelleme_tarihi"));
         return hemsire;
     }
 }

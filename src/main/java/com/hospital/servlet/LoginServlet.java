@@ -40,7 +40,7 @@ public class LoginServlet extends HttpServlet {
         if (kullanici != null) {
             HttpSession session = request.getSession();
             session.setAttribute("kullanici", kullanici);
-            session.setAttribute("kullaniciAdi", kullanici.getAdSoyad());
+            session.setAttribute("kullaniciAdi", kullanici.getKullaniciAdi());
             session.setAttribute("kullaniciRol", kullanici.getRol());
             response.sendRedirect(request.getContextPath() + "/dashboard");
         } else {
