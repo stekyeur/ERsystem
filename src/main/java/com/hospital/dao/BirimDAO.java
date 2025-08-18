@@ -9,25 +9,41 @@ import java.util.List;
 
 public class BirimDAO {
 
-    public List<Birim> findAll() {
+    // Tüm birimleri getir
+    public List<Birim> getAllBirimler() throws SQLException {
         List<Birim> birimler = new ArrayList<>();
-        String sql = "SELECT * FROM acil_birimler WHERE aktif = 1 ORDER BY birim_adi";
+        String sql = "SELECT * FROM birimler ORDER BY birim_adi";
 
         try (Connection conn = DatabaseConnection.getConnection();
-             Statement stmt = conn.createStatement();
-             ResultSet rs = stmt.executeQuery(sql)) {
+             PreparedStatement ps = conn.prepareStatement(sql);
+             ResultSet rs = ps.executeQuery()) {
 
             while (rs.next()) {
                 birimler.add(mapResultSetToBirim(rs));
             }
-        } catch (SQLException e) {
-            e.printStackTrace();
         }
         return birimler;
     }
 
-    public Birim findById(int id) {
-        String sql = "SELECT * FROM acil_birimler WHERE id = ?";
+    // Aktif birimleri getir
+    public List<Birim> getAktifBirimler() throws SQLException {
+        List<Birim> birimler = new ArrayList<>();
+        String sql = "SELECT * FROM birimler WHERE aktif = true ORDER BY birim_adi";
+
+        try (Connection conn = DatabaseConnection.getConnection();
+             PreparedStatement ps = conn.prepareStatement(sql);
+             ResultSet rs = ps.executeQuery()) {
+
+            while (rs.next()) {
+                birimler.add(mapResultSetToBirim(rs));
+            }
+        }
+        return birimler;
+    }
+
+    // ID'ye göre birim getir
+    public Birim getBirimById(int id) throws SQLException {
+        String sql = "SELECT * FROM birimler WHERE id = ?";
 
         try (Connection conn = DatabaseConnection.getConnection();
              PreparedStatement ps = conn.prepareStatement(sql)) {
@@ -38,41 +54,95 @@ public class BirimDAO {
             if (rs.next()) {
                 return mapResultSetToBirim(rs);
             }
-        } catch (SQLException e) {
-            e.printStackTrace();
         }
         return null;
     }
 
-    public List<Birim> findByIslemId(int islemId) {
-        List<Birim> birimler = new ArrayList<>();
-        String sql = "SELECT b.* FROM acil_birimler b " +
-                "INNER JOIN acil_islem_birim_iliski ibi ON b.id = ibi.birim_id " +
-                "WHERE b.aktif = 1 AND ibi.islem_id = ? ORDER BY b.birim_adi";
+    // Birim adına göre birim getir
+    public Birim getBirimByAdi(String birimAdi) throws SQLException {
+        String sql = "SELECT * FROM birimler WHERE birim_adi = ?";
 
         try (Connection conn = DatabaseConnection.getConnection();
              PreparedStatement ps = conn.prepareStatement(sql)) {
 
-            ps.setInt(1, islemId);
+            ps.setString(1, birimAdi);
             ResultSet rs = ps.executeQuery();
 
-            while (rs.next()) {
-                birimler.add(mapResultSetToBirim(rs));
+            if (rs.next()) {
+                return mapResultSetToBirim(rs);
             }
-        } catch (SQLException e) {
-            e.printStackTrace();
         }
-        return birimler;
+        return null;
     }
 
+    // Yeni birim ekle
+    public int insertBirim(Birim birim) throws SQLException {
+        String sql = "INSERT INTO birimler (birim_adi, aciklama, kapasite, aktif) VALUES (?, ?, ?, ?) RETURNING id";
+
+        try (Connection conn = DatabaseConnection.getConnection();
+             PreparedStatement ps = conn.prepareStatement(sql)) {
+
+            ps.setString(1, birim.getBirimAdi());
+            ps.setString(2, birim.getAciklama());
+            ps.setInt(3, birim.getKapasite());
+            ps.setBoolean(4, birim.isAktif());
+
+            ResultSet rs = ps.executeQuery();
+            if (rs.next()) {
+                return rs.getInt("id");
+            }
+        }
+        return 0;
+    }
+
+    // Birim güncelle
+    public boolean updateBirim(Birim birim) throws SQLException {
+        String sql = "UPDATE birimler SET birim_adi = ?, aciklama = ?, kapasite = ?, aktif = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?";
+
+        try (Connection conn = DatabaseConnection.getConnection();
+             PreparedStatement ps = conn.prepareStatement(sql)) {
+
+            ps.setString(1, birim.getBirimAdi());
+            ps.setString(2, birim.getAciklama());
+            ps.setInt(3, birim.getKapasite());
+            ps.setBoolean(4, birim.isAktif());
+            ps.setInt(5, birim.getId());
+
+            return ps.executeUpdate() > 0;
+        }
+    }
+
+    // Birim sil
+    public boolean deleteBirim(int id) throws SQLException {
+        String sql = "DELETE FROM birimler WHERE id = ?";
+
+        try (Connection conn = DatabaseConnection.getConnection();
+             PreparedStatement ps = conn.prepareStatement(sql)) {
+
+            ps.setInt(1, id);
+            return ps.executeUpdate() > 0;
+        }
+    }
+
+    // ResultSet'i Birim nesnesine çevir
     private Birim mapResultSetToBirim(ResultSet rs) throws SQLException {
         Birim birim = new Birim();
         birim.setId(rs.getInt("id"));
-        birim.setBirimKodu(rs.getString("birim_kodu"));
         birim.setBirimAdi(rs.getString("birim_adi"));
-        birim.setKapasite(rs.getInt("kapasite"));
         birim.setAciklama(rs.getString("aciklama"));
+        birim.setKapasite(rs.getInt("kapasite"));
         birim.setAktif(rs.getBoolean("aktif"));
+
+        Timestamp createdTs = rs.getTimestamp("created_at");
+        if (createdTs != null) {
+            birim.setCreatedAt(createdTs.toLocalDateTime());
+        }
+
+        Timestamp updatedTs = rs.getTimestamp("updated_at");
+        if (updatedTs != null) {
+            birim.setUpdatedAt(updatedTs.toLocalDateTime());
+        }
+
         return birim;
     }
 }

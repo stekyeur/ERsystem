@@ -1,62 +1,71 @@
 package com.hospital.servlet;
 
 import com.hospital.dao.HemsireDAO;
-import com.hospital.dao.IslemDAO;
-import com.hospital.model.Hemsire;
+import com.hospital.dto.HemsireIhtiyaci;
+import com.hospital.dto.IsYukuOzeti;
+import com.hospital.model.KayitIslem;
+import com.hospital.service.IsYukuAnalizeService;
+import com.hospital.util.DateUtils;
 import jakarta.servlet.*;
 import jakarta.servlet.http.*;
 import java.io.IOException;
-import java.sql.Date;
-import java.util.Calendar;
+import java.sql.SQLException;
+import java.time.LocalDateTime;
 import java.util.List;
 
 public class DashboardServlet extends HttpServlet {
-    private IslemDAO islemDAO = new IslemDAO();
-    private HemsireDAO hemsireDAO = new HemsireDAO();
+
+    private IsYukuAnalizeService analizeService;
+    private HemsireDAO hemsireDAO;
+
+    @Override
+    public void init() throws ServletException {
+        analizeService = new IsYukuAnalizeService();
+        hemsireDAO = new HemsireDAO();
+    }
 
     @Override
     protected void doGet(HttpServletRequest request, HttpServletResponse response)
             throws ServletException, IOException {
 
-        HttpSession session = request.getSession(false);
-        if (session == null || session.getAttribute("kullanici") == null) {
-            response.sendRedirect("login.jsp");
-            return;
+        try {
+            // Bugünkü iş yükü özeti
+            List<IsYukuOzeti> gunlukOzet = analizeService.getGunlukIsYukuAnalizi(LocalDateTime.now());
+            request.setAttribute("gunlukOzet", gunlukOzet);
+
+            // Bu haftaki hemşire ihtiyacı
+            LocalDateTime haftaBaslangici = DateUtils.getStartOfDaysAgo(7);
+            LocalDateTime bugun = LocalDateTime.now();
+            List<HemsireIhtiyaci> hemsireIhtiyaci = analizeService.hesaplaHemsireIhtiyaci(haftaBaslangici, bugun);
+            request.setAttribute("hemsireIhtiyaci", hemsireIhtiyaci);
+
+            // Kritik durumlar
+            List<KayitIslem> kritikDurumlar = analizeService.getKritikDurumAnalizi(DateUtils.getStartOfToday(), DateUtils.getEndOfToday());
+            request.setAttribute("kritikDurumlar", kritikDurumlar);
+
+            // Hemşire sayılarını çekin ve request'e ekleyin
+            int toplamHemsire = hemsireDAO.getToplamHemsireSayisi();
+            int tecrubeli = hemsireDAO.getHemsireSayisiByKategori("Tecrübeli");
+            int ortaTecrubeli = hemsireDAO.getHemsireSayisiByKategori("Orta Tecrübeli");
+            int tecrubesiz = hemsireDAO.getHemsireSayisiByKategori("Tecrübesiz");
+
+            request.setAttribute("toplamHemsire", toplamHemsire);
+            request.setAttribute("tecrubeliSayisi", tecrubeli);
+            request.setAttribute("ortaTecrubeliSayisi", ortaTecrubeli);
+            request.setAttribute("tecrubesizSayisi", tecrubesiz);
+
+            // Tarih bilgisini java.util.Date olarak ekleyin
+            request.setAttribute("bugun", new java.util.Date());
+
+            request.getRequestDispatcher("/dashboard.jsp").forward(request, response);
+
+        } catch (SQLException e) {
+            // Hata durumunda, kullanıcının görebileceği bir hata mesajı ayarlayın
+            request.setAttribute("error", "Veritabanı hatası: " + e.getMessage());
+            // Loglama yapın
+            e.printStackTrace();
+            // Gerekirse başka bir JSP'ye yönlendirin
+            request.getRequestDispatcher("/WEB-INF/jsp/error.jsp").forward(request, response);
         }
-
-        // Bugünün tarihi
-        Calendar cal = Calendar.getInstance();
-        Date bugun = new Date(cal.getTimeInMillis());
-
-        // Dashboard için istatistikler
-        List<Object[]> gunlukIstatistikler = islemDAO.getGunlukIstatistikler(bugun);
-        List<Hemsire> hemsireler = hemsireDAO.findAll();
-
-        request.setAttribute("gunlukIstatistikler", gunlukIstatistikler);
-        request.setAttribute("toplamHemsire", hemsireler.size());
-        request.setAttribute("bugun", bugun);
-
-        // Hemşire kategorilerine göre sayım
-        long tecrubesizSayisi = hemsireler.stream()
-                .filter(h -> h.getTecrube() != null && "T0".equals(h.getTecrube().getKategoriKodu()))
-                .count();
-        long ortaTecrubeliSayisi = hemsireler.stream()
-                .filter(h -> h.getTecrube() != null && "T2".equals(h.getTecrube().getKategoriKodu()))
-                .count();
-        long tecrubeliSayisi = hemsireler.stream()
-                .filter(h -> h.getTecrube() != null && "T3".equals(h.getTecrube().getKategoriKodu()))
-                .count();
-
-        request.setAttribute("tecrubesizSayisi", tecrubesizSayisi);
-        request.setAttribute("ortaTecrubeliSayisi", ortaTecrubeliSayisi);
-        request.setAttribute("tecrubeliSayisi", tecrubeliSayisi);
-
-        request.getRequestDispatcher("dashboard.jsp").forward(request, response);
-    }
-
-    @Override
-    protected void doPost(HttpServletRequest request, HttpServletResponse response)
-            throws ServletException, IOException {
-        doGet(request, response);
     }
 }

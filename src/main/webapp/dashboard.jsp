@@ -110,7 +110,7 @@
             left: 0;
             right: 0;
             height: 4px;
-            background: var(--gradient);
+            /* `var(--gradient)` yerine direkt bir renk veya gradient kullanılmalı */
         }
 
         .stat-card.primary::before { background: var(--primary-gradient); }
@@ -142,20 +142,22 @@
             content: '';
             position: absolute;
             inset: 0;
-            background: var(--gradient);
+            /* `var(--gradient)` yerine uygun bir gradient kullanılmalı */
             opacity: 0.2;
             border-radius: 12px;
         }
 
-        .stat-icon i {
-            position: relative;
-            z-index: 1;
-        }
-
+        /* Bu kısımlar zaten spesifik class'lara gradient atıyor. */
         .stat-card.primary .stat-icon { background: var(--primary-gradient); }
         .stat-card.success .stat-icon { background: var(--success-gradient); }
         .stat-card.warning .stat-icon { background: var(--warning-gradient); }
         .stat-card.info .stat-icon { background: var(--info-gradient); }
+
+        /* `stat-icon::before` için özel kurallar */
+        .stat-card.primary .stat-icon::before { background: var(--primary-gradient); }
+        .stat-card.success .stat-icon::before { background: var(--success-gradient); }
+        .stat-card.warning .stat-icon::before { background: var(--warning-gradient); }
+        .stat-card.info .stat-icon::before { background: var(--info-gradient); }
 
         .stat-title {
             font-size: 0.9rem;
@@ -414,6 +416,7 @@
 <body>
 <%@ include file="header.jsp" %>
 
+
 <div class="container">
     <div class="dashboard-header fade-in">
         <h1 class="dashboard-title">Acil Servis Dashboard</h1>
@@ -472,7 +475,7 @@
             </div>
             <%
                 SimpleDateFormat sdf = new SimpleDateFormat("dd.MM.yyyy");
-                java.sql.Date bugun = (java.sql.Date) request.getAttribute("bugun");
+                java.util.Date bugun = (java.util.Date) request.getAttribute("bugun");
             %>
             <div class="date-badge">
                 <i class="fas fa-calendar-day"></i>

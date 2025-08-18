@@ -11,7 +11,7 @@ public class LoginServlet extends HttpServlet {
     @Override
     protected void doGet(HttpServletRequest request, HttpServletResponse response)
             throws ServletException, IOException {
-        // Zaten giriş yapmış kullanıcıyı ana sayfaya yönlendir
+
         HttpSession session = request.getSession(false);
         if (session != null && session.getAttribute("kullanici") != null) {
             response.sendRedirect(request.getContextPath() + "/dashboard");
@@ -41,7 +41,6 @@ public class LoginServlet extends HttpServlet {
             HttpSession session = request.getSession();
             session.setAttribute("kullanici", kullanici);
             session.setAttribute("kullaniciAdi", kullanici.getAdSoyad());
-            session.setAttribute("kullaniciRol", kullanici.getRol());
             response.sendRedirect(request.getContextPath() + "/dashboard");
         } else {
             request.setAttribute("hata", "Geçersiz kullanıcı adı veya şifre.");

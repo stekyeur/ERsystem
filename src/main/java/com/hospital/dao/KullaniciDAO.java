@@ -2,15 +2,15 @@ package com.hospital.dao;
 
 import com.hospital.model.Kullanici;
 import com.hospital.util.DatabaseConnection;
-
 import java.sql.*;
 import java.util.ArrayList;
 import java.util.List;
 
+
 public class KullaniciDAO {
 
     public Kullanici login(String username, String password) {
-        String sql = "SELECT * FROM kullanicilar WHERE kullanici_adi = ? AND sifre = ? AND aktif = TRUE;";
+        String sql = "SELECT kullanici_adi, sifre, adi_soyadi, durum, acilis_tarih FROM kullanici WHERE kullanici_adi = ? AND sifre = ? AND durum = TRUE;";
 
         try (Connection conn = DatabaseConnection.getConnection();
              PreparedStatement ps = conn.prepareStatement(sql)) {
@@ -18,10 +18,12 @@ public class KullaniciDAO {
             ps.setString(1, username);
             ps.setString(2, password);
 
-            ResultSet rs = ps.executeQuery();
-            if (rs.next()) {
-                return mapResultSetToKullanici(rs);
+            try (ResultSet rs = ps.executeQuery()) {
+                if (rs.next()) {
+                    return mapResultSetToKullanici(rs);
+                }
             }
+
         } catch (SQLException e) {
             e.printStackTrace();
         }
@@ -29,15 +31,14 @@ public class KullaniciDAO {
     }
 
     public boolean create(Kullanici kullanici) {
-        String sql = "INSERT INTO kullanici (username, password, ad_soyad, email, rol) VALUES (?, ?, ?, ?, ?)";
+        String sql = "INSERT INTO kullanici (kullanici_adi, adi_soyadi, sifre, durum) VALUES (?, ?, ?, ?)";
         try (Connection conn = DatabaseConnection.getConnection();
              PreparedStatement ps = conn.prepareStatement(sql)) {
 
             ps.setString(1, kullanici.getUsername());
-            ps.setString(2, kullanici.getPassword());
-            ps.setString(3, kullanici.getAdSoyad());
-            ps.setString(4, kullanici.getEmail());
-            ps.setString(5, kullanici.getRol());
+            ps.setString(2, kullanici.getAdSoyad());
+            ps.setString(3, kullanici.getPassword()); // Düz metin şifre
+            ps.setBoolean(4, true);
 
             return ps.executeUpdate() > 0;
         } catch (SQLException e) {
@@ -47,34 +48,29 @@ public class KullaniciDAO {
     }
 
     public List<Kullanici> findAll() {
-        List<Kullanici> kullanicilar = new ArrayList<>();
-        String sql = "SELECT * FROM kullanici WHERE aktif = 1 ORDER BY ad_soyad";
+        List<Kullanici> kullaniciListesi = new ArrayList<>();
+        String sql = "SELECT kullanici_adi, adi_soyadi, sifre, durum, acilis_tarih FROM kullanici WHERE durum = TRUE ORDER BY adi_soyadi";
 
         try (Connection conn = DatabaseConnection.getConnection();
-             Statement stmt = conn.createStatement();
-             ResultSet rs = stmt.executeQuery(sql)) {
+             PreparedStatement ps = conn.prepareStatement(sql);
+             ResultSet rs = ps.executeQuery()) {
 
             while (rs.next()) {
-                kullanicilar.add(mapResultSetToKullanici(rs));
+                kullaniciListesi.add(mapResultSetToKullanici(rs));
             }
         } catch (SQLException e) {
             e.printStackTrace();
         }
-        return kullanicilar;
+        return kullaniciListesi;
     }
 
     private Kullanici mapResultSetToKullanici(ResultSet rs) throws SQLException {
         Kullanici kullanici = new Kullanici();
-        kullanici.setId(rs.getInt("kullanici_id"));
         kullanici.setUsername(rs.getString("kullanici_adi"));
+        kullanici.setAdSoyad(rs.getString("adi_soyadi"));
         kullanici.setPassword(rs.getString("sifre"));
-        kullanici.setRol(rs.getString("yetki"));
-        kullanici.setAktif(rs.getBoolean("aktif"));
-        kullanici.setKayitTarihi(rs.getTimestamp("olusturma_tarihi"));
-        // email ve adSoyad alanları DB’de yok, eğer modelde varsa null bırak
-        kullanici.setAdSoyad(rs.getString("kullanici_adi"));
-        kullanici.setEmail(null);
+        kullanici.setDurum(rs.getBoolean("durum"));
+        kullanici.setAcilisTarihi(rs.getTimestamp("acilis_tarih"));
         return kullanici;
     }
-
 }

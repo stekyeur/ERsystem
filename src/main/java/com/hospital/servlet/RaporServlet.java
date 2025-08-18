@@ -1,131 +1,150 @@
 package com.hospital.servlet;
 
-import com.hospital.dao.IslemDAO;
-import com.hospital.dao.RaporDAO;
-import com.hospital.model.Kullanici;
-import com.hospital.model.Rapor;
+import com.hospital.dto.HemsireIhtiyaci;
+import com.hospital.dto.IsYukuOzeti;
+import com.hospital.service.IsYukuAnalizeService;
+import com.hospital.service.RaporService;
+import com.hospital.util.DateUtils;
 import jakarta.servlet.*;
+import jakarta.servlet.annotation.WebServlet;
 import jakarta.servlet.http.*;
 import java.io.IOException;
 import java.sql.Date;
-import java.text.SimpleDateFormat;
+import java.sql.SQLException;
+import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
 import java.util.List;
 
 public class RaporServlet extends HttpServlet {
-    private RaporDAO raporDAO = new RaporDAO();
-    private IslemDAO islemDAO = new IslemDAO();
+
+    private RaporService raporService;
+    private IsYukuAnalizeService analizeService;
+
+    @Override
+    public void init() throws ServletException {
+        raporService = new RaporService();
+        analizeService = new IsYukuAnalizeService();
+    }
 
     @Override
     protected void doGet(HttpServletRequest request, HttpServletResponse response)
             throws ServletException, IOException {
 
-        HttpSession session = request.getSession(false);
-        if (session == null || session.getAttribute("kullanici") == null) {
-            response.sendRedirect("login.jsp");
-            return;
-        }
-
         String action = request.getParameter("action");
 
-        if ("liste".equals(action)) {
-            Kullanici kullanici = (Kullanici) session.getAttribute("kullanici");
-            List<Rapor> raporlar = raporDAO.findByKullanici(kullanici.getId());
-            request.setAttribute("raporlar", raporlar);
-            request.getRequestDispatcher("rapor-liste.jsp").forward(request, response);
-            return;
+        try {
+            if ("gunluk".equals(action)) {
+                handleGunlukRapor(request, response);
+            } else if ("haftalik".equals(action)) {
+                handleHaftalikRapor(request, response);
+            } else if ("aylik".equals(action)) {
+                handleAylikRapor(request, response);
+            } else if ("ozel".equals(action)) {
+                handleOzelRapor(request, response);
+            } else {
+                // Ana rapor sayfası
+                request.getRequestDispatcher("/WEB-INF/jsp/rapor.jsp").forward(request, response);
+            }
+        } catch (SQLException e) {
+            throw new ServletException("Veritabanı hatası", e);
         }
-
-        if ("indir".equals(action)) {
-            downloadRapor(request, response);
-            return;
-        }
-
-        // Rapor oluşturma formu
-        request.getRequestDispatcher("rapor-form.jsp").forward(request, response);
     }
 
     @Override
     protected void doPost(HttpServletRequest request, HttpServletResponse response)
             throws ServletException, IOException {
 
-        HttpSession session = request.getSession(false);
-        if (session == null || session.getAttribute("kullanici") == null) {
-            response.sendRedirect("login.jsp");
-            return;
-        }
+        String raporTipi = request.getParameter("raporTipi");
+        String format = request.getParameter("format");
+        String baslangicStr = request.getParameter("baslangic");
+        String bitisStr = request.getParameter("bitis");
 
         try {
-            String raporAdi = request.getParameter("raporAdi");
-            String raporTipi = request.getParameter("raporTipi");
-            String format = request.getParameter("format");
-            String baslangicStr = request.getParameter("baslangicTarihi");
-            String bitisStr = request.getParameter("bitisTarihi");
+            LocalDateTime baslangic = LocalDateTime.parse(baslangicStr + "T00:00:00");
+            LocalDateTime bitis = LocalDateTime.parse(bitisStr + "T23:59:59");
 
-            SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd");
-            Date baslangic = new Date(sdf.parse(baslangicStr).getTime());
-            Date bitis = new Date(sdf.parse(bitisStr).getTime());
-
-            Rapor rapor = new Rapor(raporAdi, raporTipi, format, baslangic, bitis);
-            Kullanici kullanici = (Kullanici) session.getAttribute("kullanici");
-            rapor.setOlusturanKullaniciId(kullanici.getId());
-
-            boolean basarili = raporDAO.create(rapor);
-
-            if (basarili) {
-                // Rapor oluşturma işlemini başlat (arka planda)
-                createRaporAsync(rapor);
-                response.sendRedirect("rapor?action=liste&basari=1");
+            if ("gunluk".equals(raporTipi)) {
+                raporService.createGunlukRapor(baslangic, format);
+            } else if ("haftalik".equals(raporTipi)) {
+                raporService.createHaftalikRapor(baslangic, format);
+            } else if ("aylik".equals(raporTipi)) {
+                raporService.createAylikRapor(baslangic, format);
             } else {
-                request.setAttribute("hata", "Rapor oluşturulurken hata oluştu.");
-                request.getRequestDispatcher("rapor-form.jsp").forward(request, response);
+                raporService.createOzelRapor(baslangic, bitis, "is_yuku", format);
             }
 
+            request.setAttribute("success", "Rapor başarıyla oluşturuldu ve indirildi");
+            request.getRequestDispatcher("/WEB-INF/jsp/rapor.jsp").forward(request, response);
+
         } catch (Exception e) {
-            e.printStackTrace();
-            request.setAttribute("hata", "Geçersiz veri girişi: " + e.getMessage());
-            request.getRequestDispatcher("rapor-form.jsp").forward(request, response);
+            request.setAttribute("error", "Rapor oluşturma hatası: " + e.getMessage());
+            request.getRequestDispatcher("/WEB-INF/jsp/rapor.jsp").forward(request, response);
         }
     }
 
-    private void createRaporAsync(Rapor rapor) {
-        // Bu metod arka planda rapor oluşturma işlemini simüle eder
-        // Gerçek uygulamada burada Excel/PDF oluşturma kodu olacak
-        new Thread(() -> {
-            try {
-                Thread.sleep(2000); // Simülasyon için bekleme
+    private void handleGunlukRapor(HttpServletRequest request, HttpServletResponse response)
+            throws ServletException, IOException, SQLException {
 
-                // Rapor verilerini al
-                List<Object[]> veriler = islemDAO.getGunlukIstatistikler((Date) rapor.getBaslangicTarihi());
+        String tarihStr = request.getParameter("tarih");
+        LocalDateTime tarih = tarihStr != null ?
+                LocalDateTime.parse(tarihStr + "T00:00:00") : LocalDateTime.now();
 
-                // Dosya yolu oluştur
-                String dosyaAdi = "rapor_" + rapor.getId() + "_" + System.currentTimeMillis();
-                if ("PDF".equals(rapor.getFormat())) {
-                    dosyaAdi += ".pdf";
-                } else {
-                    dosyaAdi += ".xlsx";
-                }
+        List<IsYukuOzeti> gunlukAnaliz = analizeService.getGunlukIsYukuAnalizi(tarih);
 
-                String dosyaYolu = "/raporlar/" + dosyaAdi;
-
-                // Burada gerçek dosya oluşturma işlemi yapılacak
-                // createPdfRapor(veriler, dosyaYolu) veya createExcelRapor(veriler, dosyaYolu)
-
-                // Rapor durumunu güncelle
-                raporDAO.updateDurum(rapor.getId(), "HAZIR", dosyaYolu);
-
-            } catch (Exception e) {
-                e.printStackTrace();
-                raporDAO.updateDurum(rapor.getId(), "HATA", null);
-            }
-        }).start();
+        request.setAttribute("gunlukAnaliz", gunlukAnaliz);
+        request.setAttribute("raporTarihi", tarih.format(DateTimeFormatter.ofPattern("dd.MM.yyyy")));
+        request.getRequestDispatcher("/WEB-INF/jsp/gunluk-rapor.jsp").forward(request, response);
     }
 
-    private void downloadRapor(HttpServletRequest request, HttpServletResponse response)
-            throws IOException {
-        // Rapor indirme işlemi
-        String raporId = request.getParameter("id");
-        // Bu metod rapor dosyasını kullanıcıya indirtir
-        // Gerçek implementasyonda dosya okuma ve response'a yazma işlemleri yapılacak
-        response.getWriter().write("Rapor indirme işlemi - ID: " + raporId);
+    private void handleHaftalikRapor(HttpServletRequest request, HttpServletResponse response)
+            throws ServletException, IOException, SQLException {
+
+        String haftaStr = request.getParameter("hafta");
+        LocalDateTime haftaBaslangici = haftaStr != null ?
+                LocalDateTime.parse(haftaStr + "T00:00:00") : DateUtils.getStartOfDaysAgo(7);
+
+        LocalDateTime haftaBitisi = haftaBaslangici.plusDays(7);
+        List<HemsireIhtiyaci> hemsireAnalizi = analizeService.hesaplaHemsireIhtiyaci(haftaBaslangici, haftaBitisi);
+
+        request.setAttribute("hemsireAnalizi", hemsireAnalizi);
+        request.setAttribute("haftaBaslangici", haftaBaslangici.format(DateTimeFormatter.ofPattern("dd.MM.yyyy")));
+        request.setAttribute("haftaBitisi", haftaBitisi.format(DateTimeFormatter.ofPattern("dd.MM.yyyy")));
+        request.getRequestDispatcher("/WEB-INF/jsp/haftalik-rapor.jsp").forward(request, response);
+    }
+
+    private void handleAylikRapor(HttpServletRequest request, HttpServletResponse response)
+            throws ServletException, IOException, SQLException {
+
+        String ayStr = request.getParameter("ay");
+        LocalDateTime ayBaslangici = ayStr != null ?
+                LocalDateTime.parse(ayStr + "-01T00:00:00") : LocalDateTime.now().withDayOfMonth(1);
+
+        LocalDateTime ayBitisi = ayBaslangici.plusMonths(1);
+        List<HemsireIhtiyaci> hemsireAnalizi = analizeService.hesaplaHemsireIhtiyaci(ayBaslangici, ayBitisi);
+
+        request.setAttribute("hemsireAnalizi", hemsireAnalizi);
+        request.setAttribute("raporAyi", ayBaslangici.format(DateTimeFormatter.ofPattern("MMMM yyyy")));
+        request.getRequestDispatcher("/WEB-INF/jsp/aylik-rapor.jsp").forward(request, response);
+    }
+
+    private void handleOzelRapor(HttpServletRequest request, HttpServletResponse response)
+            throws ServletException, IOException, SQLException {
+
+        String baslangicStr = request.getParameter("baslangic");
+        String bitisStr = request.getParameter("bitis");
+
+        LocalDateTime baslangic = baslangicStr != null ?
+                LocalDateTime.parse(baslangicStr + "T00:00:00") : DateUtils.getStartOfDaysAgo(30);
+        LocalDateTime bitis = bitisStr != null ?
+                LocalDateTime.parse(bitisStr + "T23:59:59") : LocalDateTime.now();
+
+        List<HemsireIhtiyaci> hemsireAnalizi = analizeService.hesaplaHemsireIhtiyaci(baslangic, bitis);
+        List<IsYukuOzeti> isYukuAnalizi = analizeService.getGunlukIsYukuAnalizi(baslangic);
+
+        request.setAttribute("hemsireAnalizi", hemsireAnalizi);
+        request.setAttribute("isYukuAnalizi", isYukuAnalizi);
+        request.setAttribute("baslangic", baslangic.format(DateTimeFormatter.ofPattern("dd.MM.yyyy")));
+        request.setAttribute("bitis", bitis.format(DateTimeFormatter.ofPattern("dd.MM.yyyy")));
+        request.getRequestDispatcher("/WEB-INF/jsp/ozel-rapor.jsp").forward(request, response);
     }
 }

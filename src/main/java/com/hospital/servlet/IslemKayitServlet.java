@@ -1,117 +1,108 @@
 package com.hospital.servlet;
 
 import com.hospital.dao.BirimDAO;
-import com.hospital.dao.HemsireDAO;
 import com.hospital.dao.IslemDAO;
-import com.hospital.dao.IslemTuruDAO;
+import com.hospital.dao.KayitIslemDAO;
 import com.hospital.model.Birim;
 import com.hospital.model.Islem;
-import com.hospital.model.Kullanici;
+import com.hospital.model.KayitIslem;
+import com.hospital.util.ValidationUtils;
 import jakarta.servlet.*;
 import jakarta.servlet.http.*;
 import java.io.IOException;
-import java.sql.Date;
-import java.text.SimpleDateFormat;
+import java.sql.SQLException;
+import java.time.LocalDateTime;
 import java.util.List;
-import com.google.gson.Gson;
 
 public class IslemKayitServlet extends HttpServlet {
-    private IslemDAO islemDAO = new IslemDAO();
-    private HemsireDAO hemsireDAO = new HemsireDAO();
-    private IslemTuruDAO islemTuruDAO = new IslemTuruDAO();
-    private BirimDAO birimDAO = new BirimDAO();
+
+    private KayitIslemDAO kayitIslemDAO;
+    private IslemDAO islemDAO;
+    private BirimDAO birimDAO;
+
+    @Override
+    public void init() throws ServletException {
+        kayitIslemDAO = new KayitIslemDAO();
+        islemDAO = new IslemDAO();
+        birimDAO = new BirimDAO();
+    }
 
     @Override
     protected void doGet(HttpServletRequest request, HttpServletResponse response)
             throws ServletException, IOException {
 
-        String action = request.getParameter("action");
+        try {
+            List<Islem> islemler = islemDAO.getAktifIslemler();
+            List<Birim> birimler = birimDAO.getAktifBirimler();
 
-        if ("getBirimlerByIslem".equals(action)) {
-            getBirimlerByIslem(request, response);
-            return;
+            request.setAttribute("islemler", islemler);
+            request.setAttribute("birimler", birimler);
+
+            request.getRequestDispatcher("islem-kayit.jsp").forward(request, response);
+
+        } catch (SQLException e) {
+            throw new ServletException("Veritabanı hatası", e);
         }
-
-        // Form için gerekli verileri yükle
-        request.setAttribute("hemsireler", hemsireDAO.findAll());
-        request.setAttribute("islemTurleri", islemTuruDAO.findAll());
-        request.setAttribute("birimler", birimDAO.findAll());
-
-        request.getRequestDispatcher("islem-kayit.jsp").forward(request, response);
     }
 
     @Override
     protected void doPost(HttpServletRequest request, HttpServletResponse response)
             throws ServletException, IOException {
 
-        HttpSession session = request.getSession(false);
-        if (session == null || session.getAttribute("kullanici") == null) {
-            response.sendRedirect("login.jsp");
-            return;
-        }
-
         try {
             // Form verilerini al
-            String tarihStr = request.getParameter("tarih");
-            int hemsireId = Integer.parseInt(request.getParameter("hemsire"));
-            int islemId = Integer.parseInt(request.getParameter("islem"));
-            int birimId = Integer.parseInt(request.getParameter("birim"));
-            int sureDakika = Integer.parseInt(request.getParameter("sure"));
-            String islemTipi = request.getParameter("islemTipi");
-            String kritiklik = request.getParameter("kritiklik");
+            String hemsireKategori = request.getParameter("hemsireKategori");
+            String islemIdStr = request.getParameter("islemId");
+            String birimIdStr = request.getParameter("birimId");
+            String gercekSureStr = request.getParameter("gercekSure");
+            String hastaDurumu = request.getParameter("hastaDurumu");
             String notlar = request.getParameter("notlar");
 
-            // Tarih dönüşümü
-            SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd");
-            Date tarih = new Date(sdf.parse(tarihStr).getTime());
+            // Validasyon
+            if (!ValidationUtils.isValidHemsireKategori(hemsireKategori)) {
+                request.setAttribute("error", "Geçersiz hemşire kategorisi");
+                doGet(request, response);
+                return;
+            }
 
-            // İşlem objesi oluştur
-            Islem islem = new Islem(tarih, hemsireId, islemId, birimId, sureDakika, islemTipi, kritiklik);
-            islem.setNotlar(notlar);
+            if (!ValidationUtils.isValidHastaDurumu(hastaDurumu)) {
+                hastaDurumu = "normal"; // Default değer
+            }
 
-            Kullanici kullanici = (Kullanici) session.getAttribute("kullanici");
-            islem.setKaydedenKullaniciId(kullanici.getId());
+            int islemId = Integer.parseInt(islemIdStr);
+            int birimId = Integer.parseInt(birimIdStr);
+            int gercekSure = Integer.parseInt(gercekSureStr);
 
-            // Kaydet
-            boolean basarili = islemDAO.create(islem);
+            if (!ValidationUtils.isPositiveInteger(gercekSure)) {
+                request.setAttribute("error", "Süre pozitif bir değer olmalıdır");
+                doGet(request, response);
+                return;
+            }
 
-            if (basarili) {
-                request.setAttribute("basari", "İşlem başarıyla kaydedildi.");
+            // Yeni kayıt oluştur
+            KayitIslem kayit = new KayitIslem(hemsireKategori, islemId, birimId, gercekSure, hastaDurumu);
+            kayit.setKayitZamani(LocalDateTime.now());
+            kayit.setNotlar(notlar);
+
+
+            // Veritabanına kaydet
+            int kayitId = kayitIslemDAO.insertKayitIslem(kayit);
+
+            if (kayitId > 0) {
+                // `redirect` sonrası hata veya başarı mesajı göstermek için
+                // Flash attribute kullanılabilir veya sessiona set edilebilir.
+                // Şimdilik sadece yönlendirme yapıldı.
+                response.sendRedirect("dashboard");
             } else {
-                request.setAttribute("hata", "İşlem kaydedilirken hata oluştu.");
+                request.setAttribute("error", "Kayıt sırasında hata oluştu");
+                doGet(request, response);
             }
 
-        } catch (Exception e) {
-            e.printStackTrace();
-            request.setAttribute("hata", "Geçersiz veri girişi: " + e.getMessage());
-        }
-
-        // Form verilerini tekrar yükle
-        request.setAttribute("hemsireler", hemsireDAO.findAll());
-        request.setAttribute("islemTurleri", islemTuruDAO.findAll());
-        request.setAttribute("birimler", birimDAO.findAll());
-
-        request.getRequestDispatcher("islem-kayit.jsp").forward(request, response);
-    }
-
-    private void getBirimlerByIslem(HttpServletRequest request, HttpServletResponse response)
-            throws IOException {
-
-        String islemIdStr = request.getParameter("islemId");
-        if (islemIdStr != null) {
-            try {
-                int islemId = Integer.parseInt(islemIdStr);
-                List<Birim> birimler = birimDAO.findByIslemId(islemId);
-
-                response.setContentType("application/json");
-                response.setCharacterEncoding("UTF-8");
-
-                Gson gson = new Gson();
-                response.getWriter().write(gson.toJson(birimler));
-
-            } catch (NumberFormatException e) {
-                response.setStatus(HttpServletResponse.SC_BAD_REQUEST);
-            }
+        } catch (NumberFormatException e) {
+            request.setAttribute("error", "Geçersiz sayısal değer");
+            doGet(request, response);
+        } catch (SQLException e) {
+            throw new ServletException("Veritabanı hatası", e);
         }
     }
 }

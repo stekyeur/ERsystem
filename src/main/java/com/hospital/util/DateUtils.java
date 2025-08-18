@@ -1,69 +1,38 @@
 package com.hospital.util;
 
-import java.sql.Date;
-import java.text.ParseException;
-import java.text.SimpleDateFormat;
-import java.util.Calendar;
+
+import java.time.LocalDateTime;
+import java.time.LocalDate;
+import java.time.format.DateTimeFormatter;
 
 public class DateUtils {
+    public static final DateTimeFormatter DATE_FORMATTER = DateTimeFormatter.ofPattern("yyyy-MM-dd");
+    public static final DateTimeFormatter DATETIME_FORMATTER = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
 
-    public static final String DATE_FORMAT = "yyyy-MM-dd";
-    public static final String DATETIME_FORMAT = "yyyy-MM-dd HH:mm:ss";
-    public static final String DISPLAY_DATE_FORMAT = "dd.MM.yyyy";
-    public static final String DISPLAY_DATETIME_FORMAT = "dd.MM.yyyy HH:mm";
-
-    public static Date parseDate(String dateStr) {
-        if (dateStr == null || dateStr.trim().isEmpty()) {
-            return null;
-        }
-
-        try {
-            SimpleDateFormat sdf = new SimpleDateFormat(DATE_FORMAT);
-            return new Date(sdf.parse(dateStr).getTime());
-        } catch (ParseException e) {
-            return null;
-        }
+    // Bugünün başlangıcı (00:00:00)
+    public static LocalDateTime getStartOfToday() {
+        return LocalDate.now().atStartOfDay();
     }
 
-    public static String formatDate(Date date) {
-        if (date == null) {
-            return "";
-        }
-
-        SimpleDateFormat sdf = new SimpleDateFormat(DISPLAY_DATE_FORMAT);
-        return sdf.format(date);
+    // Bugünün sonu (23:59:59)
+    public static LocalDateTime getEndOfToday() {
+        return LocalDate.now().atTime(23, 59, 59);
     }
 
-    public static String formatDateTime(java.util.Date date) {
-        if (date == null) {
-            return "";
-        }
-
-        SimpleDateFormat sdf = new SimpleDateFormat(DISPLAY_DATETIME_FORMAT);
-        return sdf.format(date);
+    // N gün öncesinin başlangıcı
+    public static LocalDateTime getStartOfDaysAgo(int days) {
+        return LocalDate.now().minusDays(days).atStartOfDay();
     }
 
-    public static Date getToday() {
-        return new Date(System.currentTimeMillis());
+    // Tarih aralığı kontrolü
+    public static boolean isInDateRange(LocalDateTime date, LocalDateTime start, LocalDateTime end) {
+        return date.isAfter(start) && date.isBefore(end);
     }
 
-    public static Date getDateDaysAgo(int days) {
-        Calendar cal = Calendar.getInstance();
-        cal.add(Calendar.DAY_OF_MONTH, -days);
-        return new Date(cal.getTimeInMillis());
-    }
-
-    public static Date getFirstDayOfMonth(Date date) {
-        Calendar cal = Calendar.getInstance();
-        cal.setTime(date);
-        cal.set(Calendar.DAY_OF_MONTH, 1);
-        return new Date(cal.getTimeInMillis());
-    }
-
-    public static Date getLastDayOfMonth(Date date) {
-        Calendar cal = Calendar.getInstance();
-        cal.setTime(date);
-        cal.set(Calendar.DAY_OF_MONTH, cal.getActualMaximum(Calendar.DAY_OF_MONTH));
-        return new Date(cal.getTimeInMillis());
+    // Saat formatında gösterim
+    public static String formatDurationAsHours(int minutes) {
+        int hours = minutes / 60;
+        int mins = minutes % 60;
+        return String.format("%d:%02d", hours, mins);
     }
 }

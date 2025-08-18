@@ -1,7 +1,6 @@
 package com.hospital.dao;
 
 import com.hospital.model.Hemsire;
-import com.hospital.model.HemsireTecrube;
 import com.hospital.util.DatabaseConnection;
 
 import java.sql.*;
@@ -10,111 +9,110 @@ import java.util.List;
 
 public class HemsireDAO {
 
-    public List<Hemsire> findAll() {
+    /**
+     * Tüm aktif hemşireleri ve tecrübe seviyelerini listeler.
+     * @return Aktif hemsire listesi
+     * @throws SQLException Veritabanı hatası
+     */
+    public List<Hemsire> findAll() throws SQLException {
         List<Hemsire> hemsireler = new ArrayList<>();
-        String sql = "SELECT h.*, ht.kategori_kodu, ht.kategori_adi " +
-                "FROM acil_hemsire h " +
-                "LEFT JOIN acil_hemsire_tecrube ht ON h.tecrube_id = ht.id " +
-                "WHERE h.aktif = 1 ORDER BY h.ad_soyad";
+        String sql = "SELECT hemsire_id, personel_no, ad_soyad, tecrube_seviyesi, kurum_id, aktif, ise_giris_tarihi " +
+                "FROM hemsireler WHERE aktif = true ORDER BY ad_soyad";
 
         try (Connection conn = DatabaseConnection.getConnection();
-             Statement stmt = conn.createStatement();
-             ResultSet rs = stmt.executeQuery(sql)) {
+             PreparedStatement ps = conn.prepareStatement(sql);
+             ResultSet rs = ps.executeQuery()) {
 
             while (rs.next()) {
                 hemsireler.add(mapResultSetToHemsire(rs));
             }
-        } catch (SQLException e) {
-            e.printStackTrace();
         }
         return hemsireler;
     }
 
-    public Hemsire findById(int id) {
-        String sql = "SELECT h.*, ht.kategori_kodu, ht.kategori_adi " +
-                "FROM acil_hemsire h " +
-                "LEFT JOIN acil_hemsire_tecrube ht ON h.tecrube_id = ht.id " +
-                "WHERE h.id = ?";
+    /**
+     * Yeni bir hemşire kaydı ekler.
+     * @param hemsire Eklenecek Hemsire nesnesi
+     * @return İşlem başarılıysa true, değilse false
+     * @throws SQLException Veritabanı hatası
+     */
+    public boolean create(Hemsire hemsire) throws SQLException {
+        // SQL sorgusu `hemsire` tablosuna göre güncellendi
+        String sql = "INSERT INTO hemsireler (personel_no, ad_soyad, tecrube_seviyesi, kurum_id, aktif, ise_giris_tarihi) " +
+                "VALUES (?, ?, ?, ?, ?, ?)";
 
         try (Connection conn = DatabaseConnection.getConnection();
              PreparedStatement ps = conn.prepareStatement(sql)) {
 
-            ps.setInt(1, id);
-            ResultSet rs = ps.executeQuery();
-
-            if (rs.next()) {
-                return mapResultSetToHemsire(rs);
-            }
-        } catch (SQLException e) {
-            e.printStackTrace();
-        }
-        return null;
-    }
-
-    public boolean create(Hemsire hemsire) {
-        String sql = "INSERT INTO acil_hemsire (sicil_no, ad_soyad, tecrube_id, bolum, telefon, email, ise_giris_tarihi) " +
-                "VALUES (?, ?, ?, ?, ?, ?, ?)";
-
-        try (Connection conn = DatabaseConnection.getConnection();
-             PreparedStatement ps = conn.prepareStatement(sql)) {
-
-            ps.setString(1, hemsire.getSicilNo());
+            ps.setString(1, hemsire.getPersonelNo());
             ps.setString(2, hemsire.getAdSoyad());
-            ps.setInt(3, hemsire.getTecrubeId());
-            ps.setString(4, hemsire.getBolum());
-            ps.setString(5, hemsire.getTelefon());
-            ps.setString(6, hemsire.getEmail());
-            ps.setDate(7, (Date) hemsire.getIseGirisTarihi());
+            ps.setString(3, hemsire.getTecrubeSeviyesi());
+            ps.setInt(4, hemsire.getKurumId());
+            ps.setBoolean(5, hemsire.isAktif());
+            ps.setDate(6, new Date(hemsire.getIseGirisTarihi().getTime()));
 
             return ps.executeUpdate() > 0;
-        } catch (SQLException e) {
-            e.printStackTrace();
         }
-        return false;
     }
 
-    public List<Hemsire> findByTecrubeKategorisi(String kategoriKodu) {
-        List<Hemsire> hemsireler = new ArrayList<>();
-        String sql = "SELECT h.*, ht.kategori_kodu, ht.kategori_adi " +
-                "FROM acil_hemsire h " +
-                "INNER JOIN acil_hemsire_tecrube ht ON h.tecrube_id = ht.id " +
-                "WHERE h.aktif = 1 AND ht.kategori_kodu = ? ORDER BY h.ad_soyad";
-
+    /**
+     * Belirtilen tecrübe seviyesine sahip hemşire sayısını döndürür.
+     * @param tecrubeSeviyesi Tecrübe seviyesi (örn: 'Tecrübeli', 'Tecrübesiz')
+     * @return İlgili kategoriye ait hemşire sayısı
+     * @throws SQLException Veritabanı hatası
+     */
+    public int getHemsireSayisiByKategori(String tecrubeSeviyesi) throws SQLException {
+        String sql = "SELECT COUNT(*) FROM hemsireler WHERE tecrube_seviyesi = ? AND aktif = true";
         try (Connection conn = DatabaseConnection.getConnection();
              PreparedStatement ps = conn.prepareStatement(sql)) {
 
-            ps.setString(1, kategoriKodu);
-            ResultSet rs = ps.executeQuery();
-
-            while (rs.next()) {
-                hemsireler.add(mapResultSetToHemsire(rs));
+            ps.setString(1, tecrubeSeviyesi);
+            try (ResultSet rs = ps.executeQuery()) {
+                if (rs.next()) {
+                    return rs.getInt(1);
+                }
             }
-        } catch (SQLException e) {
-            e.printStackTrace();
         }
-        return hemsireler;
+        return 0;
     }
 
+    /**
+     * Toplam aktif hemşire sayısını döndürür.
+     * @return Toplam aktif hemşire sayısı
+     * @throws SQLException Veritabanı hatası
+     */
+    public int getToplamHemsireSayisi() throws SQLException {
+        String sql = "SELECT COUNT(*) FROM hemsireler WHERE aktif = true";
+        try (Connection conn = DatabaseConnection.getConnection();
+             PreparedStatement ps = conn.prepareStatement(sql)) {
+
+            try (ResultSet rs = ps.executeQuery()) {
+                if (rs.next()) {
+                    return rs.getInt(1);
+                }
+            }
+        }
+        return 0;
+    }
+
+    /**
+     * ResultSet nesnesini Hemsire model nesnesine eşler.
+     * @param rs ResultSet nesnesi
+     * @return Hemsire nesnesi
+     * @throws SQLException SQL Hatası
+     */
     private Hemsire mapResultSetToHemsire(ResultSet rs) throws SQLException {
         Hemsire hemsire = new Hemsire();
-        hemsire.setId(rs.getInt("id"));
-        hemsire.setSicilNo(rs.getString("sicil_no"));
+        hemsire.setHemsireId(rs.getInt("hemsire_id"));
+        hemsire.setPersonelNo(rs.getString("personel_no"));
         hemsire.setAdSoyad(rs.getString("ad_soyad"));
-        hemsire.setTecrubeId(rs.getInt("tecrube_id"));
-        hemsire.setBolum(rs.getString("bolum"));
-        hemsire.setTelefon(rs.getString("telefon"));
-        hemsire.setEmail(rs.getString("email"));
-        hemsire.setIseGirisTarihi(rs.getDate("ise_giris_tarihi"));
+        hemsire.setTecrubeSeviyesi(rs.getString("tecrube_seviyesi"));
+        hemsire.setKurumId(rs.getInt("kurum_id"));
         hemsire.setAktif(rs.getBoolean("aktif"));
-
-        // Tecrübe bilgisi
-        if (rs.getString("kategori_kodu") != null) {
-            HemsireTecrube tecrube = new HemsireTecrube();
-            tecrube.setKategoriKodu(rs.getString("kategori_kodu"));
-            tecrube.setKategoriAdi(rs.getString("kategori_adi"));
-            hemsire.setTecrube(tecrube);
-        }
-
+        hemsire.setIseGirisTarihi(rs.getDate("ise_giris_tarihi"));
+        // `tecrube` objesi artık kullanılmadığı için kaldırıldı.
         return hemsire;
     }
+
+
 }

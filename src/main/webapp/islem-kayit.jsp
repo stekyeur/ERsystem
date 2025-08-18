@@ -1,5 +1,7 @@
 <%@ page contentType="text/html;charset=UTF-8" language="java" %>
 <%@ page import="java.util.List" %>
+<%@ page import="com.hospital.model.Islem" %>
+<%@ page import="com.hospital.model.Hemsire" %>
 <!DOCTYPE html>
 <html>
 <head>
@@ -45,9 +47,9 @@
                                     if (hemsireler != null) {
                                         for (Hemsire hemsire : hemsireler) {
                                 %>
-                                <option value="<%= hemsire.getId() %>">
+                                <option value="<%= hemsire.getHemsireId() %>">
                                     <%= hemsire.getAdSoyad() %>
-                                    (<%= hemsire.getTecrube() != null ? hemsire.getTecrube().getKategoriKodu() : "" %>)
+                                    (<%= hemsire.getTecrubeSeviyesi() != null ? hemsire.getTecrubeSeviyesi() : "" %>)
                                 </option>
                                 <% } } %>
                             </select>
@@ -62,12 +64,12 @@
                             <select class="form-select" id="islem" name="islem" required onchange="loadBirimler()">
                                 <option value="">İşlem Seçiniz</option>
                                 <%
-                                    List<IslemTuru> islemTurleri = (List<IslemTuru>) request.getAttribute("islemTurleri");
-                                    if (islemTurleri != null) {
-                                        for (IslemTuru islemTuru : islemTurleri) {
+                                    List<Islem> islemler = (List<Islem>) request.getAttribute("islemler");
+                                    if (islemler != null) {
+                                        for (Islem islem : islemler) {
                                 %>
-                                <option value="<%= islemTuru.getId() %>" data-tip="<%= islemTuru.getIslemTipi() %>">
-                                    <%= islemTuru.getIslemAdi() %> (<%= islemTuru.getIslemTipi() %>)
+                                <option value="<%= islem.getId() %>" data-tip="<%= islem.isDirect() ? "DIRECT" : "INDIRECT" %>">
+                                    <%= islem.getIslemAdi() %> (<%= islem.isDirect() ? "DIRECT" : "INDIRECT" %>)
                                 </option>
                                 <% } } %>
                             </select>
@@ -118,7 +120,7 @@
                 </div>
 
                 <button type="submit" class="btn btn-primary">Kaydet</button>
-                <a href="dashboard.jsp" class="btn btn-secondary">İptal</a>
+                <a href="dashboard" class="btn btn-secondary">İptal</a>
             </form>
         </div>
     </div>
