@@ -25,6 +25,27 @@ public class BirimDAO {
         return birimler;
     }
 
+    public List<Birim> getBirimlerByIslemId(int islemId) throws SQLException {
+        List<Birim> birimler = new ArrayList<>();
+        String sql = "SELECT b.id, b.birim_adi, b.aciklama, b.kapasite, b.aktif, b.created_at, b.updated_at " +
+                "FROM birimler b " +
+                "JOIN birim_islemler ib ON b.id = ib.birim_id " +
+                "WHERE ib.islem_id = ? AND b.aktif = true " +
+                "ORDER BY b.birim_adi";
+
+        try (Connection conn = DatabaseConnection.getConnection();
+             PreparedStatement ps = conn.prepareStatement(sql)) {
+
+            ps.setInt(1, islemId);
+            try (ResultSet rs = ps.executeQuery()) {
+                while (rs.next()) {
+                    birimler.add(mapResultSetToBirim(rs));
+                }
+            }
+        }
+        return birimler;
+    }
+
     // Aktif birimleri getir
     public List<Birim> getAktifBirimler() throws SQLException {
         List<Birim> birimler = new ArrayList<>();

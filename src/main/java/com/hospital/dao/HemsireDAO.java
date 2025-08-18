@@ -10,6 +10,28 @@ import java.util.List;
 public class HemsireDAO {
 
     /**
+     * Benzersiz tecrübe seviyelerini getirir.
+     * @return Benzersiz tecrübe seviyelerinin listesi
+     * @throws SQLException Veritabanı hatası
+     */
+    public List<String> getUniqueTecrubeSeviyeleri() throws SQLException {
+        List<String> tecrubeSeviyeleri = new ArrayList<>();
+        String sql = "SELECT DISTINCT tecrube_seviyesi FROM hemsireler WHERE aktif = true ORDER BY tecrube_seviyesi";
+
+        try (Connection conn = DatabaseConnection.getConnection();
+             PreparedStatement ps = conn.prepareStatement(sql);
+             ResultSet rs = ps.executeQuery()) {
+
+            while (rs.next()) {
+                tecrubeSeviyeleri.add(rs.getString("tecrube_seviyesi"));
+            }
+        }
+        return tecrubeSeviyeleri;
+    }
+
+    // ... (Mevcut metotlar değişmedi)
+
+    /**
      * Tüm aktif hemşireleri ve tecrübe seviyelerini listeler.
      * @return Aktif hemsire listesi
      * @throws SQLException Veritabanı hatası
@@ -110,9 +132,6 @@ public class HemsireDAO {
         hemsire.setKurumId(rs.getInt("kurum_id"));
         hemsire.setAktif(rs.getBoolean("aktif"));
         hemsire.setIseGirisTarihi(rs.getDate("ise_giris_tarihi"));
-        // `tecrube` objesi artık kullanılmadığı için kaldırıldı.
         return hemsire;
     }
-
-
 }

@@ -37,19 +37,19 @@
                             <input type="date" class="form-control" id="tarih" name="tarih" required>
                         </div>
                     </div>
+                    <%-- Sadece bu kısmı değiştirin --%>
                     <div class="col-md-6">
                         <div class="mb-3">
-                            <label for="hemsire" class="form-label">Hemşire</label>
+                            <label for="hemsire" class="form-label">Hemşire Tecrübe Seviyesi</label>
                             <select class="form-select" id="hemsire" name="hemsire" required>
-                                <option value="">Hemşire Seçiniz</option>
+                                <option value="">Tecrübe Seviyesi Seçiniz</option>
                                 <%
-                                    List<Hemsire> hemsireler = (List<Hemsire>) request.getAttribute("hemsireler");
-                                    if (hemsireler != null) {
-                                        for (Hemsire hemsire : hemsireler) {
+                                    List<String> tecrubeSeviyeleri = (List<String>) request.getAttribute("tecrubeSeviyeleri");
+                                    if (tecrubeSeviyeleri != null) {
+                                        for (String tecrube : tecrubeSeviyeleri) {
                                 %>
-                                <option value="<%= hemsire.getHemsireId() %>">
-                                    <%= hemsire.getAdSoyad() %>
-                                    (<%= hemsire.getTecrubeSeviyesi() != null ? hemsire.getTecrubeSeviyesi() : "" %>)
+                                <option value="<%= tecrube %>">
+                                    <%= tecrube %>
                                 </option>
                                 <% } } %>
                             </select>
