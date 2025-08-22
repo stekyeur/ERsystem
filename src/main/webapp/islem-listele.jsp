@@ -1,6 +1,7 @@
 <%@ page contentType="text/html;charset=UTF-8" language="java" %>
 <%@ page import="java.util.List" %>
 <%@ page import="java.text.SimpleDateFormat" %>
+<%@ page import="com.hospital.model.Islem" %>
 <!DOCTYPE html>
 <html>
 <head>
@@ -80,7 +81,7 @@
                         <td>
                             <% if (islem.getHemsire() != null && islem.getHemsire().getTecrube() != null) { %>
                             <span class="badge bg-info">
-                                        <%= islem.getHemsire().getTecrube().getKategoriKodu() %>
+                                        <%= islem.getTecrube().getKategoriKodu() %>
                                     </span>
                             <% } %>
                         </td>

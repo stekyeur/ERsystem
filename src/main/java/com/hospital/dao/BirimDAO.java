@@ -27,7 +27,7 @@ public class BirimDAO {
 
     public List<Birim> getBirimlerByIslemId(int islemId) throws SQLException {
         List<Birim> birimler = new ArrayList<>();
-        String sql = "SELECT b.id, b.birim_adi, b.aciklama, b.kapasite, b.aktif, b.created_at, b.updated_at " +
+        String sql = "SELECT b.id, b.birim_adi, b.aciklama, b.aktif, b.created_at, b.updated_at " +
                 "FROM birimler b " +
                 "JOIN birim_islemler ib ON b.id = ib.birim_id " +
                 "WHERE ib.islem_id = ? AND b.aktif = true " +
@@ -79,6 +79,7 @@ public class BirimDAO {
         return null;
     }
 
+
     // Birim adına göre birim getir
     public Birim getBirimByAdi(String birimAdi) throws SQLException {
         String sql = "SELECT * FROM birimler WHERE birim_adi = ?";
@@ -98,7 +99,7 @@ public class BirimDAO {
 
     // Yeni birim ekle
     public int insertBirim(Birim birim) throws SQLException {
-        String sql = "INSERT INTO birimler (birim_adi, aciklama, kapasite, aktif) VALUES (?, ?, ?, ?) RETURNING id";
+        String sql = "INSERT INTO birimler (birim_adi, aciklama, aktif) VALUES (?, ?, ?) RETURNING id";
 
         try (Connection conn = DatabaseConnection.getConnection();
              PreparedStatement ps = conn.prepareStatement(sql)) {
@@ -118,14 +119,13 @@ public class BirimDAO {
 
     // Birim güncelle
     public boolean updateBirim(Birim birim) throws SQLException {
-        String sql = "UPDATE birimler SET birim_adi = ?, aciklama = ?, kapasite = ?, aktif = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?";
+        String sql = "UPDATE birimler SET birim_adi = ?, aciklama = ?, aktif = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?";
 
         try (Connection conn = DatabaseConnection.getConnection();
              PreparedStatement ps = conn.prepareStatement(sql)) {
 
             ps.setString(1, birim.getBirimAdi());
             ps.setString(2, birim.getAciklama());
-            ps.setInt(3, birim.getKapasite());
             ps.setBoolean(4, birim.isAktif());
             ps.setInt(5, birim.getId());
 
@@ -151,7 +151,6 @@ public class BirimDAO {
         birim.setId(rs.getInt("id"));
         birim.setBirimAdi(rs.getString("birim_adi"));
         birim.setAciklama(rs.getString("aciklama"));
-        birim.setKapasite(rs.getInt("kapasite"));
         birim.setAktif(rs.getBoolean("aktif"));
 
         Timestamp createdTs = rs.getTimestamp("created_at");

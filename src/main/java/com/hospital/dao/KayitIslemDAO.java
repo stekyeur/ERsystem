@@ -71,13 +71,13 @@ public class KayitIslemDAO {
     public List<KayitIslem> getKayitlarByBirimId(int birimId, LocalDateTime baslangic, LocalDateTime bitis) throws SQLException {
         List<KayitIslem> kayitlar = new ArrayList<>();
         String sql = """
-            SELECT k.*, b.birim_adi, i.islem_adi, i.is_direct 
-            FROM kayit_islem k
-            JOIN birimler b ON k.birim_id = b.id
-            JOIN islemler i ON k.islem_id = i.id
-            WHERE k.birim_id = ? AND k.kayit_zamani BETWEEN ? AND ?
-            ORDER BY k.kayit_zamani DESC
-        """;
+        SELECT k.*, b.birim_adi, i.islem_adi, i.is_direct 
+        FROM kayit_islem k
+        JOIN birimler b ON k.birim_id = b.id
+        JOIN islemler i ON k.islem_id = i.id
+        WHERE k.birim_id = ? AND k.kayit_zamani BETWEEN ? AND ?
+        ORDER BY k.kayit_zamani DESC
+    """;
 
         try (Connection conn = DatabaseConnection.getConnection();
              PreparedStatement ps = conn.prepareStatement(sql)) {
@@ -85,10 +85,11 @@ public class KayitIslemDAO {
             ps.setInt(1, birimId);
             ps.setTimestamp(2, Timestamp.valueOf(baslangic));
             ps.setTimestamp(3, Timestamp.valueOf(bitis));
-            ResultSet rs = ps.executeQuery();
 
-            while (rs.next()) {
-                kayitlar.add(mapResultSetToKayitIslem(rs));
+            try (ResultSet rs = ps.executeQuery()) {
+                while (rs.next()) {
+                    kayitlar.add(mapResultSetToKayitIslem(rs));
+                }
             }
         }
         return kayitlar;

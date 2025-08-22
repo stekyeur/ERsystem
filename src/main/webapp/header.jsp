@@ -408,7 +408,7 @@
 
 <nav class="modern-navbar" id="mainNavbar">
     <div class="nav-container">
-        <a href="../dashboard.jsp" class="nav-brand">
+        <a href="${pageContext.request.contextPath}/dashboard" class="nav-brand">
             <div class="brand-icon">
                 <i class="fas fa-heartbeat"></i>
             </div>
@@ -418,7 +418,7 @@
         <!-- Desktop Menu -->
         <ul class="nav-menu">
             <li class="nav-item">
-                <a href="../dashboard.jsp" class="nav-link" onclick="setActive(this)">
+                <a href="${pageContext.request.contextPath}/dashboard" class="nav-link" onclick="setActive(this)">
                     <i class="fas fa-tachometer-alt"></i>
                     Dashboard
                 </a>
@@ -430,17 +430,17 @@
                     İşlemler
                 </a>
                 <ul class="dropdown-menu">
-                    <li><a href="islem-kayit" class="dropdown-item">
+                    <li><a href="${pageContext.request.contextPath}/islem-kayit" class="dropdown-item">
                         <i class="fas fa-plus-circle"></i>İşlem Kayıt
                     </a></li>
-                    <li><a href="islem-listele" class="dropdown-item">
+                    <li><a href="${pageContext.request.contextPath}/islem-listele" class="dropdown-item">
                         <i class="fas fa-list"></i>İşlem Listele
                     </a></li>
                 </ul>
             </li>
 
             <li class="nav-item">
-                <a href="hemsire" class="nav-link" onclick="setActive(this)">
+                <a href="${pageContext.request.contextPath}/hemsire" class="nav-link" onclick="setActive(this)">
                     <i class="fas fa-user-nurse"></i>
                     Hemşireler
                 </a>
@@ -452,10 +452,10 @@
                     Raporlar
                 </a>
                 <ul class="dropdown-menu">
-                    <li><a href="rapor" class="dropdown-item">
+                    <li><a href="${pageContext.request.contextPath}/rapor" class="dropdown-item">
                         <i class="fas fa-file-plus"></i>Rapor Oluştur
                     </a></li>
-                    <li><a href="rapor?action=liste" class="dropdown-item">
+                    <li><a href="${pageContext.request.contextPath}/rapor?action=liste" class="dropdown-item">
                         <i class="fas fa-folder-open"></i>Raporlarım
                     </a></li>
                 </ul>
@@ -488,7 +488,7 @@
     <!-- Mobile Menu -->
     <div class="mobile-menu" id="mobileMenu">
         <div class="mobile-nav-item">
-            <a href="../dashboard.jsp" class="mobile-nav-link">
+            <a href="${pageContext.request.contextPath}/dashboard" class="mobile-nav-link">
                 <i class="fas fa-tachometer-alt"></i> Dashboard
             </a>
         </div>
@@ -498,17 +498,17 @@
                 <i class="fas fa-tasks"></i> İşlemler <i class="fas fa-chevron-down" style="margin-left: auto;"></i>
             </div>
             <div class="mobile-dropdown-items">
-                <a href="islem-kayit" class="mobile-nav-link">
+                <a href="${pageContext.request.contextPath}/islem-kayit" class="mobile-nav-link">
                     <i class="fas fa-plus-circle"></i> İşlem Kayıt
                 </a>
-                <a href="islem-listele" class="mobile-nav-link">
+                <a href="${pageContext.request.contextPath}/islem-listele" class="mobile-nav-link">
                     <i class="fas fa-list"></i> İşlem Listele
                 </a>
             </div>
         </div>
 
         <div class="mobile-nav-item">
-            <a href="hemsire" class="mobile-nav-link">
+            <a href="${pageContext.request.contextPath}/hemsire" class="mobile-nav-link">
                 <i class="fas fa-user-nurse"></i> Hemşireler
             </a>
         </div>
@@ -530,7 +530,7 @@
         <div class="divider"></div>
 
         <div class="mobile-nav-item">
-            <a href="logout" class="mobile-nav-link">
+            <a href="${pageContext.request.contextPath}/logout" class="mobile-nav-link">
                 <i class="fas fa-sign-out-alt"></i> Çıkış Yap
             </a>
         </div>

@@ -1,6 +1,6 @@
 package com.hospital.servlet;
 
-import com.google.gson.Gson; // Gson kütüphanesini ekleyin.
+import com.google.gson.*;
 import com.hospital.dao.BirimDAO;
 import com.hospital.dao.HemsireDAO; // Yeni eklendi
 import com.hospital.dao.IslemDAO;
@@ -15,6 +15,9 @@ import java.io.IOException;
 import java.sql.SQLException;
 import java.time.LocalDateTime;
 import java.util.List;
+import java.lang.reflect.Type;
+import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
 
 public class IslemKayitServlet extends HttpServlet {
 
@@ -106,13 +109,8 @@ public class IslemKayitServlet extends HttpServlet {
             int birimId = Integer.parseInt(birimIdStr);
             int gercekSure = Integer.parseInt(gercekSureStr);
 
-            // Eğer KayitIslem modelinizde "islemTipi" ve "kritiklik" için alanlar yoksa,
-            // bu modeli güncellemeniz veya bu verileri "notlar" gibi bir alanda birleştirmeniz gerekebilir.
-            // Bu örnekte, 'kritiklik' değerini 'hastaDurumu' olarak kullanacağız.
-            String hastaDurumu = kritiklik;
-
             // Yeni kayıt oluştur
-            KayitIslem kayit = new KayitIslem(tecrubeSeviyesi, islemId, birimId, gercekSure, hastaDurumu);
+            KayitIslem kayit = new KayitIslem(tecrubeSeviyesi, islemId, birimId, gercekSure, kritiklik);
             kayit.setKayitZamani(LocalDateTime.now());
             kayit.setNotlar(notlar);
 
