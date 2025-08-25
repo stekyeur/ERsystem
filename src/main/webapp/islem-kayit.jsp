@@ -37,7 +37,6 @@
                             <input type="date" class="form-control" id="tarih" name="tarih" required>
                         </div>
                     </div>
-                    <%-- Sadece bu kısmı değiştirin --%>
                     <div class="col-md-6">
                         <div class="mb-3">
                             <label for="hemsire" class="form-label">Hemşire Tecrübe Seviyesi</label>
@@ -139,22 +138,42 @@
         const selectedOption = islemSelect.options[islemSelect.selectedIndex];
         const islemTipi = selectedOption.getAttribute('data-tip');
 
-        // İşlem tipini otomatik set et
         if (islemTipi) {
             islemTipiSelect.value = islemTipi;
         }
 
         if (islemSelect.value) {
             fetch('islem-kayit?action=getBirimlerByIslem&islemId=' + islemSelect.value)
-                .then(response => response.json())
+                .then(response => {
+                    // Yanıtın başarılı olup olmadığını kontrol et
+                    if (!response.ok) {
+                        throw new Error('Network response was not ok');
+                    }
+                    return response.json();
+                })
                 .then(data => {
+                    // Sunucudan gelen veriyi konsola yazdır, debugging için
+                    console.log("Sunucudan gelen veri:", data);
+
+                    // Dropdown'u temizle
                     birimSelect.innerHTML = '<option value="">Birim Seçiniz</option>';
-                    data.forEach(birim => {
-                        birimSelect.innerHTML += `<option value="${birim.id}">${birim.birimAdi}</option>`;
-                    });
+
+                    // Verinin dizi olduğundan emin ol
+                    if (Array.isArray(data)) {
+                        // Her birim için bir <option> ekle
+                        data.forEach(birim => {
+                            // Birim nesnesinin 'id' ve 'birimAdi' özelliklerine sahip olduğundan emin ol
+                            if (birim.id && birim.birimAdi) {
+                                birimSelect.innerHTML += `<option value="${birim.id}">${birim.birimAdi}</option>`;
+                            }
+                        });
+                    } else {
+                        console.error("Gelen veri bir dizi değil:", data);
+                        birimSelect.innerHTML = '<option value="">Hata: Geçersiz veri formatı</option>';
+                    }
                 })
                 .catch(error => {
-                    console.error('Error:', error);
+                    console.error('Fetch işlemi sırasında bir hata oluştu:', error);
                     birimSelect.innerHTML = '<option value="">Hata oluştu</option>';
                 });
         } else {

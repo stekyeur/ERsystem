@@ -9,77 +9,162 @@ import java.util.List;
 
 public class RaporDAO {
 
-    public boolean create(Rapor rapor) {
-        String sql = "INSERT INTO acil_raporlar (rapor_adi, rapor_tipi, format, baslangic_tarihi, " +
-                "bitis_tarihi, olusturan_kullanici_id) VALUES (?, ?, ?, ?, ?, ?)";
+    private static final String INSERT_SQL =
+            "INSERT INTO raporlar (rapor_adi, rapor_tipi, format, baslangic_tarihi, bitis_tarihi, " +
+                    "olusturan_kullanici_id, durum, aciklama) VALUES (?, ?, ?, ?, ?, ?, ?, ?)";
 
+    private static final String UPDATE_SQL =
+            "UPDATE raporlar SET dosya_yolu = ?, durum = ?, aciklama = ?, dosya_boyutu = ? WHERE id = ?";
+
+    private static final String SELECT_BY_ID_SQL =
+            "SELECT * FROM raporlar WHERE id = ?";
+
+    private static final String SELECT_BY_KULLANICI_SQL =
+            "SELECT * FROM raporlar WHERE olusturan_kullanici_id = ? ORDER BY olusturma_tarihi DESC";
+
+    private static final String DELETE_SQL =
+            "DELETE FROM raporlar WHERE id = ?";
+
+    private static final String SELECT_FILTERED_BASE_SQL =
+            "SELECT * FROM raporlar WHERE olusturan_kullanici_id = ? ";
+
+    // Rapor ekleme
+    public int insert(Rapor rapor) throws SQLException {
         try (Connection conn = DatabaseConnection.getConnection();
-             PreparedStatement ps = conn.prepareStatement(sql, Statement.RETURN_GENERATED_KEYS)) {
+             PreparedStatement stmt = conn.prepareStatement(INSERT_SQL, Statement.RETURN_GENERATED_KEYS)) {
 
-            ps.setString(1, rapor.getRaporAdi());
-            ps.setString(2, rapor.getRaporTipi());
-            ps.setString(3, rapor.getFormat());
-            ps.setDate(4, (Date) rapor.getBaslangicTarihi());
-            ps.setDate(5, (Date) rapor.getBitisTarihi());
-            ps.setInt(6, rapor.getOlusturanKullaniciId());
+            stmt.setString(1, rapor.getRaporAdi());
+            stmt.setString(2, rapor.getRaporTipi());
+            stmt.setString(3, rapor.getFormat());
+            stmt.setDate(4, new java.sql.Date(rapor.getBaslangicTarihi().getTime()));
+            stmt.setDate(5, new java.sql.Date(rapor.getBitisTarihi().getTime()));
+            stmt.setInt(6, rapor.getOlusturanKullaniciId());
+            stmt.setString(7, rapor.getDurum());
+            stmt.setString(8, rapor.getAciklama());
 
-            int affectedRows = ps.executeUpdate();
-            if (affectedRows > 0) {
-                try (ResultSet generatedKeys = ps.getGeneratedKeys()) {
-                    if (generatedKeys.next()) {
-                        rapor.setId(generatedKeys.getInt(1));
-                        return true;
-                    }
+            int affectedRows = stmt.executeUpdate();
+            if (affectedRows == 0) {
+                throw new SQLException("Rapor eklenirken hata olustu.");
+            }
+
+            try (ResultSet generatedKeys = stmt.getGeneratedKeys()) {
+                if (generatedKeys.next()) {
+                    return generatedKeys.getInt(1);
+                } else {
+                    throw new SQLException("Rapor ID'si alinamadi.");
                 }
             }
-        } catch (SQLException e) {
-            e.printStackTrace();
         }
-        return false;
     }
 
-    public boolean updateDurum(int raporId, String durum, String dosyaYolu) {
-        String sql = "UPDATE acil_raporlar SET durum = ?, dosya_yolu = ? WHERE id = ?";
-
+    // Rapor güncelleme
+    public boolean update(Rapor rapor) throws SQLException {
         try (Connection conn = DatabaseConnection.getConnection();
-             PreparedStatement ps = conn.prepareStatement(sql)) {
+             PreparedStatement stmt = conn.prepareStatement(UPDATE_SQL)) {
 
-            ps.setString(1, durum);
-            ps.setString(2, dosyaYolu);
-            ps.setInt(3, raporId);
+            stmt.setString(1, rapor.getDosyaYolu());
+            stmt.setString(2, rapor.getDurum());
+            stmt.setString(3, rapor.getAciklama());
+            stmt.setLong(4, rapor.getDosyaBoyutu());
+            stmt.setInt(5, rapor.getId());
 
-            return ps.executeUpdate() > 0;
-        } catch (SQLException e) {
-            e.printStackTrace();
+            return stmt.executeUpdate() > 0;
         }
-        return false;
     }
 
-    public List<Rapor> findByKullanici(int kullaniciId) {
-        List<Rapor> raporlar = new ArrayList<>();
-        String sql = "SELECT r.*, k.ad_soyad as olusturan_adi " +
-                "FROM acil_raporlar r " +
-                "LEFT JOIN kullanici k ON r.olusturan_kullanici_id = k.id " +
-                "WHERE r.olusturan_kullanici_id = ? " +
-                "ORDER BY r.olusturma_tarihi DESC";
-
+    // ID ile rapor bulma
+    public Rapor findById(int id) throws SQLException {
         try (Connection conn = DatabaseConnection.getConnection();
-             PreparedStatement ps = conn.prepareStatement(sql)) {
+             PreparedStatement stmt = conn.prepareStatement(SELECT_BY_ID_SQL)) {
 
-            ps.setInt(1, kullaniciId);
-            ResultSet rs = ps.executeQuery();
+            stmt.setInt(1, id);
 
-            while (rs.next()) {
-                raporlar.add(mapResultSetToRapor(rs));
+            try (ResultSet rs = stmt.executeQuery()) {
+                if (rs.next()) {
+                    return mapResultSetToRapor(rs);
+                }
             }
-        } catch (SQLException e) {
-            e.printStackTrace();
         }
+        return null;
+    }
+
+    // Kullanıcının raporlarını getirme
+    public List<Rapor> findByKullaniciId(int kullaniciId) throws SQLException {
+        List<Rapor> raporlar = new ArrayList<>();
+
+        try (Connection conn = DatabaseConnection.getConnection();
+             PreparedStatement stmt = conn.prepareStatement(SELECT_BY_KULLANICI_SQL)) {
+
+            stmt.setInt(1, kullaniciId);
+
+            try (ResultSet rs = stmt.executeQuery()) {
+                while (rs.next()) {
+                    raporlar.add(mapResultSetToRapor(rs));
+                }
+            }
+        }
+
         return raporlar;
     }
 
+    // Filtrelenmiş rapor listesi
+    public List<Rapor> findFiltered(int kullaniciId, String durum, String tip, String format)
+            throws SQLException {
+        List<Rapor> raporlar = new ArrayList<>();
+        StringBuilder sqlBuilder = new StringBuilder(SELECT_FILTERED_BASE_SQL);
+
+        if (durum != null && !durum.isEmpty()) {
+            sqlBuilder.append(" AND durum = ?");
+        }
+        if (tip != null && !tip.isEmpty()) {
+            sqlBuilder.append(" AND rapor_tipi = ?");
+        }
+        if (format != null && !format.isEmpty()) {
+            sqlBuilder.append(" AND format = ?");
+        }
+
+        sqlBuilder.append(" ORDER BY olusturma_tarihi DESC");
+
+        try (Connection conn = DatabaseConnection.getConnection();
+             PreparedStatement stmt = conn.prepareStatement(sqlBuilder.toString())) {
+
+            int paramIndex = 1;
+            stmt.setInt(paramIndex++, kullaniciId);
+
+            if (durum != null && !durum.isEmpty()) {
+                stmt.setString(paramIndex++, durum);
+            }
+            if (tip != null && !tip.isEmpty()) {
+                stmt.setString(paramIndex++, tip);
+            }
+            if (format != null && !format.isEmpty()) {
+                stmt.setString(paramIndex++, format);
+            }
+
+            try (ResultSet rs = stmt.executeQuery()) {
+                while (rs.next()) {
+                    raporlar.add(mapResultSetToRapor(rs));
+                }
+            }
+        }
+
+        return raporlar;
+    }
+
+    // Rapor silme
+    public boolean delete(int id) throws SQLException {
+        try (Connection conn = DatabaseConnection.getConnection();
+             PreparedStatement stmt = conn.prepareStatement(DELETE_SQL)) {
+
+            stmt.setInt(1, id);
+            return stmt.executeUpdate() > 0;
+        }
+    }
+
+    // ResultSet'ten Rapor nesnesine dönüştürme
     private Rapor mapResultSetToRapor(ResultSet rs) throws SQLException {
         Rapor rapor = new Rapor();
+
         rapor.setId(rs.getInt("id"));
         rapor.setRaporAdi(rs.getString("rapor_adi"));
         rapor.setRaporTipi(rs.getString("rapor_tipi"));
@@ -90,6 +175,9 @@ public class RaporDAO {
         rapor.setBaslangicTarihi(rs.getDate("baslangic_tarihi"));
         rapor.setBitisTarihi(rs.getDate("bitis_tarihi"));
         rapor.setDurum(rs.getString("durum"));
+        rapor.setAciklama(rs.getString("aciklama"));
+        rapor.setDosyaBoyutu(rs.getLong("dosya_boyutu"));
+
         return rapor;
     }
 }

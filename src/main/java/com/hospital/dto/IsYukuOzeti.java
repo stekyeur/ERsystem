@@ -1,55 +1,51 @@
 package com.hospital.dto;
 
+/**
+ * Bu sınıf, günlük iş yükü raporu için kullanılacak veri transfer nesnesidir.
+ * Saatlik aralıklarda hasta sayısı, bekleme süresi ve diğer metrikleri tutar.
+ */
 public class IsYukuOzeti {
-    private String birimAdi;
-    private String hemsireKategori;
-    private int toplamIslem;
-    private int toplamSureDk;
-    private double toplamSureSaat;
-    private double ortalamaIslemSure;
+    private String saatAraligi;
+    private int hastaSayisi;
+    private int ortalamaBeklemeSuresi; // dakika cinsinden
 
     // Constructors
     public IsYukuOzeti() {}
 
-    public IsYukuOzeti(String birimAdi, String hemsireKategori, int toplamIslem, int toplamSureDk) {
-        this.birimAdi = birimAdi;
-        this.hemsireKategori = hemsireKategori;
-        this.toplamIslem = toplamIslem;
-        this.toplamSureDk = toplamSureDk;
-        this.toplamSureSaat = toplamSureDk / 60.0;
-        this.ortalamaIslemSure = toplamIslem > 0 ? (double) toplamSureDk / toplamIslem : 0;
+    /**
+     * Saatlik iş yükü özeti oluşturmak için kullanılan constructor.
+     * @param saatAraligi Saat aralığı (örn: "08:00 - 09:00").
+     * @param hastaSayisi Bu saat aralığındaki hasta sayısı.
+     * @param ortalamaBeklemeSuresi Ortalama bekleme süresi (dakika).
+     */
+    public IsYukuOzeti(String saatAraligi, int hastaSayisi, int ortalamaBeklemeSuresi) {
+        this.saatAraligi = saatAraligi;
+        this.hastaSayisi = hastaSayisi;
+        this.ortalamaBeklemeSuresi = ortalamaBeklemeSuresi;
     }
 
     // Getters and Setters
-    public String getBirimAdi() { return birimAdi; }
-    public void setBirimAdi(String birimAdi) { this.birimAdi = birimAdi; }
-
-    public String getHemsireKategori() { return hemsireKategori; }
-    public void setHemsireKategori(String hemsireKategori) { this.hemsireKategori = hemsireKategori; }
-
-    public int getToplamIslem() { return toplamIslem; }
-    public void setToplamIslem(int toplamIslem) {
-        this.toplamIslem = toplamIslem;
-        updateCalculations();
+    public String getSaatAraligi() {
+        return saatAraligi;
     }
 
-    public int getToplamSureDk() { return toplamSureDk; }
-    public void setToplamSureDk(int toplamSureDk) {
-        this.toplamSureDk = toplamSureDk;
-        updateCalculations();
+    public void setSaatAraligi(String saatAraligi) {
+        this.saatAraligi = saatAraligi;
     }
 
-    public double getToplamSureSaat() { return toplamSureSaat; }
-    public double getOrtalamaIslemSure() { return ortalamaIslemSure; }
-
-    private void updateCalculations() {
-        this.toplamSureSaat = toplamSureDk / 60.0;
-        this.ortalamaIslemSure = toplamIslem > 0 ? (double) toplamSureDk / toplamIslem : 0;
+    public int getHastaSayisi() {
+        return hastaSayisi;
     }
 
-    @Override
-    public String toString() {
-        return String.format("IsYukuOzeti{birim='%s', kategori='%s', islem=%d, sure=%.2fsa}",
-                birimAdi, hemsireKategori, toplamIslem, toplamSureSaat);
+    public void setHastaSayisi(int hastaSayisi) {
+        this.hastaSayisi = hastaSayisi;
+    }
+
+    public int getOrtalamaBeklemeSuresi() {
+        return ortalamaBeklemeSuresi;
+    }
+
+    public void setOrtalamaBeklemeSuresi(int ortalamaBeklemeSuresi) {
+        this.ortalamaBeklemeSuresi = ortalamaBeklemeSuresi;
     }
 }

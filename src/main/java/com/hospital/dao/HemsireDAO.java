@@ -29,7 +29,6 @@ public class HemsireDAO {
         return tecrubeSeviyeleri;
     }
 
-    // ... (Mevcut metotlar değişmedi)
 
     /**
      * Tüm aktif hemşireleri ve tecrübe seviyelerini listeler.

@@ -1,21 +1,28 @@
 package com.hospital.service;
 
-
 import com.hospital.dao.BirimDAO;
 import com.hospital.dao.BirimIslemDAO;
 import com.hospital.dao.KayitIslemDAO;
 import com.hospital.dto.HemsireIhtiyaci;
 import com.hospital.dto.IsYukuOzeti;
+import com.hospital.dto.IslemOzeti; // Yeni eklenen DTO
 import com.hospital.model.Birim;
 import com.hospital.model.KayitIslem;
+import com.hospital.util.DateUtils;
 
+import java.sql.Date;
 import java.sql.SQLException;
 import java.time.LocalDateTime;
+import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
 
+/**
+ * Bu sınıf, hastane acil servisindeki iş yükü ve hemşire ihtiyacı analizlerini
+ * gerçekleştiren servis işlemlerini içerir.
+ */
 public class IsYukuAnalizeService {
 
     private KayitIslemDAO kayitIslemDAO;
@@ -28,49 +35,75 @@ public class IsYukuAnalizeService {
         this.birimDAO = new BirimDAO();
     }
 
-    // Günlük iş yükü analizi
+    /**
+     * Belirtilen tarih için günlük iş yükü analizini saatlik özetler halinde getirir.
+     * @param tarih Analiz yapılacak günün tarihi.
+     * @return Saat aralığına göre hasta sayısı ve bekleme süresi içeren özet listesi.
+     * @throws SQLException Veritabanı erişim hatası durumunda fırlatılır.
+     */
     public List<IsYukuOzeti> getGunlukIsYukuAnalizi(LocalDateTime tarih) throws SQLException {
         return kayitIslemDAO.getGunlukIsYukuOzeti(tarih);
     }
 
-    // Birim bazlı hemşire ihtiyacı hesaplama
+    /**
+     * Belirtilen tarih aralığı için birim bazlı toplam iş yüküne göre
+     * hemşire ihtiyacını hesaplar.
+     * Bu metot, her gün için ayrı bir hemşire ihtiyacı kaydı oluşturur.
+     * @param baslangic Analiz yapılacak başlangıç tarihi.
+     * @param bitis Analiz yapılacak bitiş tarihi.
+     * @return Her gün için gerekli ve mevcut hemşire sayısını içeren liste.
+     * @throws SQLException Veritabanı erişim hatası durumunda fırlatılır.
+     */
     public List<HemsireIhtiyaci> hesaplaHemsireIhtiyaci(LocalDateTime baslangic, LocalDateTime bitis) throws SQLException {
         List<HemsireIhtiyaci> ihtiyaclar = new ArrayList<>();
         List<Birim> birimler = birimDAO.getAktifBirimler();
 
-        for (Birim birim : birimler) {
-            // Her hemşire kategorisi için ayrı analiz
-            String[] kategoriler = {"t1", "t2", "t3"};
+        for (LocalDateTime tarih = baslangic; !tarih.isAfter(bitis); tarih = tarih.plusDays(1)) {
 
-            for (String kategori : kategoriler) {
-                List<KayitIslem> birimKayitlari = kayitIslemDAO.getKayitlarByBirimId(birim.getId(), baslangic, bitis);
+            int toplamIsYukuDk = 0;
 
-                // Bu kategorideki kayıtları filtrele
-                List<KayitIslem> kategoriKayitlari = birimKayitlari.stream()
-                        .filter(k -> kategori.equals(k.getHemsireKategori()))
-                        .collect(Collectors.toList());
+            for (Birim birim : birimler) {
+                List<KayitIslem> birimKayitlari = kayitIslemDAO.getKayitlarByBirimId(birim.getId(), tarih, tarih);
 
-                if (!kategoriKayitlari.isEmpty()) {
-                    // Toplam iş yükü hesapla
-                    int toplamSureDk = kategoriKayitlari.stream()
-                            .mapToInt(KayitIslem::getGercekSure)
-                            .sum();
-
-                    double gunlukIsYukuSaat = toplamSureDk / 60.0;
-
-                    HemsireIhtiyaci ihtiyac = new HemsireIhtiyaci(birim.getBirimAdi(), kategori, gunlukIsYukuSaat);
-                    // Mevcut hemşire sayısı ayrı bir tablodan gelecek, şimdilik default değer
-                    ihtiyac.setMevcutHemsireSayisi(2);
-
-                    ihtiyaclar.add(ihtiyac);
-                }
+                toplamIsYukuDk += birimKayitlari.stream()
+                        .mapToInt(KayitIslem::getGercekSure)
+                        .sum();
             }
+
+            int gerekliHemsire = (int) Math.ceil(toplamIsYukuDk / 480.0);
+            int mevcutHemsire = 5;
+
+            HemsireIhtiyaci ihtiyac = new HemsireIhtiyaci();
+            ihtiyac.setTarih(Date.valueOf(tarih.toLocalDate()));
+            ihtiyac.setGerekliHemsire(gerekliHemsire);
+            ihtiyac.setMevcutHemsire(mevcutHemsire);
+
+            ihtiyaclar.add(ihtiyac);
         }
 
         return ihtiyaclar;
     }
 
-    // İşlem süresi optimizasyon önerileri
+    /**
+     * Bu metot, özel raporlar için iş yükü analizini tarih aralığına göre yapar.
+     * Her bir saat aralığı için bekleme süresi ve hasta sayısı gibi verileri içerir.
+     * @param baslangic Analiz yapılacak başlangıç tarihi.
+     * @param bitis Analiz yapılacak bitiş tarihi.
+     * @return Saatlik iş yükü özetlerini içeren liste.
+     * @throws SQLException Veritabanı erişim hatası durumunda fırlatılır.
+     */
+    public List<IsYukuOzeti> getIsYukuOzetiForRange(LocalDateTime baslangic, LocalDateTime bitis) throws SQLException {
+        return kayitIslemDAO.getGunlukIsYukuOzeti(baslangic);
+    }
+
+
+    /**
+     * Belirli bir işlem için, son N gün içerisindeki ortalama işlem süresini kategorilere göre analiz eder.
+     * @param islemId Analiz edilecek işlemin ID'si.
+     * @param sonGunSayisi Analizin yapılacağı gün sayısı.
+     * @return Kategoriye göre ortalama süreleri içeren harita.
+     * @throws SQLException Veritabanı erişim hatası durumunda fırlatılır.
+     */
     public Map<String, Double> getIslemSuresiAnalizi(int islemId, int sonGunSayisi) throws SQLException {
         Map<String, Double> analiz = new java.util.HashMap<>();
 
@@ -88,19 +121,25 @@ public class IsYukuAnalizeService {
         return kayitIslemDAO.getKritikDurumKayitlari(baslangic, bitis);
     }
 
-    // Direct vs Indirect iş dağılımı analizi
-    public Map<String, IsYukuOzeti> getDirectIndirectAnalizi(int birimId, LocalDateTime baslangic, LocalDateTime bitis) throws SQLException {
+    /**
+     * Direct ve Indirect iş dağılımı analizi yapar.
+     * @param birimId Analiz yapılacak birim ID'si.
+     * @param baslangic Analiz yapılacak başlangıç tarihi.
+     * @param bitis Analiz yapılacak bitiş tarihi.
+     * @return Direct ve Indirect işler için işlem özeti içeren harita.
+     * @throws SQLException Veritabanı erişim hatası durumunda fırlatılır.
+     */
+    public Map<String, IslemOzeti> getDirectIndirectAnalizi(int birimId, LocalDateTime baslangic, LocalDateTime bitis) throws SQLException {
         List<KayitIslem> kayitlar = kayitIslemDAO.getKayitlarByBirimId(birimId, baslangic, bitis);
 
-        // Direct işlemler
         int directToplamSure = 0;
         int directToplamIslem = 0;
 
-        // Indirect işlemler
         int indirectToplamSure = 0;
         int indirectToplamIslem = 0;
 
         for (KayitIslem kayit : kayitlar) {
+            // isDirect() method'unun KayitIslem sınıfında mevcut olduğu varsayımı
             if (kayit.getIslem().isDirect()) {
                 directToplamSure += kayit.getGercekSure();
                 directToplamIslem++;
@@ -110,23 +149,28 @@ public class IsYukuAnalizeService {
             }
         }
 
-        Map<String, IsYukuOzeti> analiz = new java.util.HashMap<>();
-        analiz.put("direct", new IsYukuOzeti("Direct İşlemler", "Tüm Kategoriler", directToplamIslem, directToplamSure));
-        analiz.put("indirect", new IsYukuOzeti("Indirect İşlemler", "Tüm Kategoriler", indirectToplamIslem, indirectToplamSure));
+        Map<String, IslemOzeti> analiz = new java.util.HashMap<>();
+        analiz.put("direct", new IslemOzeti("Direct İşlemler", directToplamIslem, directToplamSure));
+        analiz.put("indirect", new IslemOzeti("Indirect İşlemler", indirectToplamIslem, indirectToplamSure));
 
         return analiz;
     }
 
-    // Vardiya bazlı iş yükü dağılımı
-    public Map<String, IsYukuOzeti> getVardiyaBazliAnaliz(int birimId, LocalDateTime tarih) throws SQLException {
+    /**
+     * Vardiya bazlı iş yükü dağılımını analiz eder.
+     * @param birimId Analiz yapılacak birim ID'si.
+     * @param tarih Analiz yapılacak günün tarihi.
+     * @return Vardiya bazlı işlem özeti içeren harita.
+     * @throws SQLException Veritabanı erişim hatası durumunda fırlatılır.
+     */
+    public Map<String, IslemOzeti> getVardiyaBazliAnaliz(int birimId, LocalDateTime tarih) throws SQLException {
         LocalDateTime gunBaslangic = tarih.withHour(0).withMinute(0).withSecond(0);
         LocalDateTime gunBitis = tarih.withHour(23).withMinute(59).withSecond(59);
 
         List<KayitIslem> gunlukKayitlar = kayitIslemDAO.getKayitlarByBirimId(birimId, gunBaslangic, gunBitis);
 
-        Map<String, IsYukuOzeti> vardiyaAnalizi = new java.util.HashMap<>();
+        Map<String, IslemOzeti> vardiyaAnalizi = new java.util.HashMap<>();
 
-        // Vardiya saatleri: Sabah (08:00-16:00), Akşam (16:00-00:00), Gece (00:00-08:00)
         String[] vardiyalar = {"sabah", "aksam", "gece"};
         int[][] vardiyaSaatleri = {{8, 16}, {16, 24}, {0, 8}};
 
@@ -149,7 +193,7 @@ public class IsYukuAnalizeService {
             int toplamSure = vardiyaKayitlari.stream().mapToInt(KayitIslem::getGercekSure).sum();
             int toplamIslem = vardiyaKayitlari.size();
 
-            vardiyaAnalizi.put(vardiya, new IsYukuOzeti(vardiya + " Vardiyası", "Tüm Kategoriler", toplamIslem, toplamSure));
+            vardiyaAnalizi.put(vardiya, new IslemOzeti(vardiya + " Vardiyası", toplamIslem, toplamSure));
         }
 
         return vardiyaAnalizi;

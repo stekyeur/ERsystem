@@ -31,7 +31,6 @@ public class RaporServlet extends HttpServlet {
             throws ServletException, IOException {
 
         String action = request.getParameter("action");
-
         try {
             if ("gunluk".equals(action)) {
                 handleGunlukRapor(request, response);
@@ -41,9 +40,14 @@ public class RaporServlet extends HttpServlet {
                 handleAylikRapor(request, response);
             } else if ("ozel".equals(action)) {
                 handleOzelRapor(request, response);
+            } else if ("liste".equals(action)) {
+                // Rapor listeleme isteği
+                int kullaniciId = 1; // Örnek Kullanıcı ID, gerçek uygulamada session'dan alınmalı.
+                request.setAttribute("raporlar", raporService.getKullaniciRaporlari(kullaniciId));
+                request.getRequestDispatcher("/rapor-listele.jsp").forward(request, response);
             } else {
-                // Ana rapor sayfası
-                request.getRequestDispatcher("/WEB-INF/jsp/rapor.jsp").forward(request, response);
+                // Varsayılan olarak rapor oluşturma formuna yönlendir
+                request.getRequestDispatcher("/rapor-form.jsp").forward(request, response);
             }
         } catch (SQLException e) {
             throw new ServletException("Veritabanı hatası", e);
@@ -58,30 +62,37 @@ public class RaporServlet extends HttpServlet {
         String format = request.getParameter("format");
         String baslangicStr = request.getParameter("baslangic");
         String bitisStr = request.getParameter("bitis");
+        String raporAdi = request.getParameter("raporAdi");
+
+        int kullaniciId = 1; // Örnek Kullanıcı ID, gerçek uygulamada session'dan alınmalı.
 
         try {
             LocalDateTime baslangic = LocalDateTime.parse(baslangicStr + "T00:00:00");
-            LocalDateTime bitis = LocalDateTime.parse(bitisStr + "T23:59:59");
+            LocalDateTime bitis = (bitisStr != null && !bitisStr.isEmpty()) ?
+                    LocalDateTime.parse(bitisStr + "T23:59:59") : baslangic.plusDays(1).minusMinutes(1);
 
-            if ("gunluk".equals(raporTipi)) {
-                raporService.createGunlukRapor(baslangic, format);
-            } else if ("haftalik".equals(raporTipi)) {
-                raporService.createHaftalikRapor(baslangic, format);
-            } else if ("aylik".equals(raporTipi)) {
-                raporService.createAylikRapor(baslangic, format);
-            } else {
-                raporService.createOzelRapor(baslangic, bitis, "is_yuku", format);
-            }
+            // Asenkron rapor oluşturma servisini çağır
+            raporService.createRaporAsync(raporAdi, raporTipi.toUpperCase(), format,
+                            baslangic, bitis, kullaniciId)
+                    .thenAccept(rapor -> {
+                        System.out.println("Rapor oluşturma işlemi tamamlandı: " + rapor.getRaporAdi());
+                    })
+                    .exceptionally(ex -> {
+                        System.err.println("Rapor oluşturma hatası: " + ex.getMessage());
+                        return null;
+                    });
 
-            request.setAttribute("success", "Rapor başarıyla oluşturuldu ve indirildi");
-            request.getRequestDispatcher("/WEB-INF/jsp/rapor.jsp").forward(request, response);
+            request.setAttribute("success", "Rapor oluşturma işlemi başlatıldı. Raporunuz hazır olduğunda listeye eklenecektir.");
+
+            // Kullanıcıyı rapor listesi sayfasına yönlendir
+            response.sendRedirect(request.getContextPath() + "/rapor?action=liste");
 
         } catch (Exception e) {
+            e.printStackTrace();
             request.setAttribute("error", "Rapor oluşturma hatası: " + e.getMessage());
-            request.getRequestDispatcher("/WEB-INF/jsp/rapor.jsp").forward(request, response);
+            request.getRequestDispatcher("/rapor-form.jsp").forward(request, response);
         }
     }
-
     private void handleGunlukRapor(HttpServletRequest request, HttpServletResponse response)
             throws ServletException, IOException, SQLException {
 
@@ -93,7 +104,7 @@ public class RaporServlet extends HttpServlet {
 
         request.setAttribute("gunlukAnaliz", gunlukAnaliz);
         request.setAttribute("raporTarihi", tarih.format(DateTimeFormatter.ofPattern("dd.MM.yyyy")));
-        request.getRequestDispatcher("/WEB-INF/jsp/gunluk-rapor.jsp").forward(request, response);
+        request.getRequestDispatcher("/gunluk-rapor.jsp").forward(request, response);
     }
 
     private void handleHaftalikRapor(HttpServletRequest request, HttpServletResponse response)
@@ -109,7 +120,7 @@ public class RaporServlet extends HttpServlet {
         request.setAttribute("hemsireAnalizi", hemsireAnalizi);
         request.setAttribute("haftaBaslangici", haftaBaslangici.format(DateTimeFormatter.ofPattern("dd.MM.yyyy")));
         request.setAttribute("haftaBitisi", haftaBitisi.format(DateTimeFormatter.ofPattern("dd.MM.yyyy")));
-        request.getRequestDispatcher("/WEB-INF/jsp/haftalik-rapor.jsp").forward(request, response);
+        request.getRequestDispatcher("/haftalik-rapor.jsp").forward(request, response);
     }
 
     private void handleAylikRapor(HttpServletRequest request, HttpServletResponse response)
@@ -124,7 +135,7 @@ public class RaporServlet extends HttpServlet {
 
         request.setAttribute("hemsireAnalizi", hemsireAnalizi);
         request.setAttribute("raporAyi", ayBaslangici.format(DateTimeFormatter.ofPattern("MMMM yyyy")));
-        request.getRequestDispatcher("/WEB-INF/jsp/aylik-rapor.jsp").forward(request, response);
+        request.getRequestDispatcher("/aylik-rapor.jsp").forward(request, response);
     }
 
     private void handleOzelRapor(HttpServletRequest request, HttpServletResponse response)
@@ -145,6 +156,6 @@ public class RaporServlet extends HttpServlet {
         request.setAttribute("isYukuAnalizi", isYukuAnalizi);
         request.setAttribute("baslangic", baslangic.format(DateTimeFormatter.ofPattern("dd.MM.yyyy")));
         request.setAttribute("bitis", bitis.format(DateTimeFormatter.ofPattern("dd.MM.yyyy")));
-        request.getRequestDispatcher("/WEB-INF/jsp/ozel-rapor.jsp").forward(request, response);
+        request.getRequestDispatcher("/ozel-rapor.jsp").forward(request, response);
     }
 }

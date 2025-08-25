@@ -2,56 +2,60 @@ package com.hospital.servlet;
 
 import com.google.gson.*;
 import com.hospital.dao.BirimDAO;
-import com.hospital.dao.HemsireDAO; // Yeni eklendi
+import com.hospital.dao.HemsireDAO;
 import com.hospital.dao.IslemDAO;
 import com.hospital.dao.KayitIslemDAO;
 import com.hospital.model.Birim;
 import com.hospital.model.Islem;
 import com.hospital.model.KayitIslem;
-import com.hospital.util.ValidationUtils;
+import com.hospital.servlet.LocalDateTimeAdapter;
 import jakarta.servlet.*;
 import jakarta.servlet.http.*;
 import java.io.IOException;
 import java.sql.SQLException;
 import java.time.LocalDateTime;
 import java.util.List;
-import java.lang.reflect.Type;
-import java.time.LocalDateTime;
-import java.time.format.DateTimeFormatter;
 
 public class IslemKayitServlet extends HttpServlet {
 
     private KayitIslemDAO kayitIslemDAO;
     private IslemDAO islemDAO;
     private BirimDAO birimDAO;
-    private HemsireDAO hemsireDAO; // Yeni eklendi
+    private HemsireDAO hemsireDAO;
+
+    // Gson nesnesini sınıf değişkeni olarak tanımlayın
+    private Gson gson;
 
     @Override
     public void init() throws ServletException {
         kayitIslemDAO = new KayitIslemDAO();
         islemDAO = new IslemDAO();
         birimDAO = new BirimDAO();
-        hemsireDAO = new HemsireDAO(); // Yeni eklendi
+        hemsireDAO = new HemsireDAO();
+
+        // Gson nesnesini burada, sadece bir kere oluşturun ve adaptörü kaydedin
+        this.gson = new GsonBuilder()
+                .registerTypeAdapter(LocalDateTime.class, new LocalDateTimeAdapter())
+                .create();
     }
 
     @Override
     protected void doGet(HttpServletRequest request, HttpServletResponse response)
             throws ServletException, IOException {
 
-        // AJAX isteğini kontrol et: Birim listesi isteniyor mu?
         String action = request.getParameter("action");
         if ("getBirimlerByIslem".equals(action)) {
             String islemIdStr = request.getParameter("islemId");
             if (islemIdStr != null && !islemIdStr.isEmpty()) {
                 try {
                     int islemId = Integer.parseInt(islemIdStr);
-                    // islemId'ye göre birimleri veritabanından çekin
                     List<Birim> birimler = birimDAO.getBirimlerByIslemId(islemId);
 
-                    // Birimleri JSON formatına dönüştürüp yanıt olarak gönderin
                     response.setContentType("application/json");
                     response.setCharacterEncoding("UTF-8");
-                    String json = new Gson().toJson(birimler);
+
+                    // Burada, daha önce init() metodunda oluşturulan ve konfigüre edilen 'gson' nesnesini kullanın
+                    String json = this.gson.toJson(birimler);
                     response.getWriter().write(json);
                 } catch (NumberFormatException | SQLException e) {
                     response.setStatus(HttpServletResponse.SC_INTERNAL_SERVER_ERROR);
@@ -61,17 +65,12 @@ public class IslemKayitServlet extends HttpServlet {
                 response.setStatus(HttpServletResponse.SC_BAD_REQUEST);
                 response.getWriter().write("{\"error\": \"islemId parametresi eksik\"}");
             }
-            return; // AJAX isteği işlendi, daha fazla işlem yapmaya gerek yok
+            return;
         }
 
-        // Normal sayfa yükleme işlemi
         try {
-            // Sadece tecrübe seviyelerini çekin, tüm hemşireleri değil
             List<String> tecrubeSeviyeleri = hemsireDAO.getUniqueTecrubeSeviyeleri();
-
             List<Islem> islemler = islemDAO.getAktifIslemler();
-            // Birimler direkt getirilmiyor, AJAX ile çağrılacak. Bu satır silindi:
-            // List<Birim> birimler = birimDAO.getAktifBirimler();
 
             request.setAttribute("tecrubeSeviyeleri", tecrubeSeviyeleri);
             request.setAttribute("islemler", islemler);
@@ -88,33 +87,28 @@ public class IslemKayitServlet extends HttpServlet {
             throws ServletException, IOException {
 
         try {
-            // JSP formundaki 'name' özelliklerine göre parametreleri alın
-            String tecrubeSeviyesi = request.getParameter("hemsire"); // Formdan gelen 'hemsire'
-            String islemIdStr = request.getParameter("islem"); // Formdan gelen 'islem'
-            String birimIdStr = request.getParameter("birim"); // Formdan gelen 'birim'
-            String gercekSureStr = request.getParameter("sure"); // Formdan gelen 'sure'
-            String islemTipi = request.getParameter("islemTipi"); // Formdan gelen 'islemTipi'
-            String kritiklik = request.getParameter("kritiklik"); // Formdan gelen 'kritiklik'
+            String tecrubeSeviyesi = request.getParameter("hemsire");
+            String islemIdStr = request.getParameter("islem");
+            String birimIdStr = request.getParameter("birim");
+            String gercekSureStr = request.getParameter("sure");
+            String islemTipi = request.getParameter("islemTipi");
+            String kritiklik = request.getParameter("kritiklik");
             String notlar = request.getParameter("notlar");
 
-            // Validasyon
             if (tecrubeSeviyesi == null || tecrubeSeviyesi.isEmpty()) {
                 request.setAttribute("hata", "Lütfen bir tecrübe seviyesi seçin.");
                 doGet(request, response);
                 return;
             }
-            // Diğer validasyonlar da eklenebilir.
 
             int islemId = Integer.parseInt(islemIdStr);
             int birimId = Integer.parseInt(birimIdStr);
             int gercekSure = Integer.parseInt(gercekSureStr);
 
-            // Yeni kayıt oluştur
             KayitIslem kayit = new KayitIslem(tecrubeSeviyesi, islemId, birimId, gercekSure, kritiklik);
             kayit.setKayitZamani(LocalDateTime.now());
             kayit.setNotlar(notlar);
 
-            // Veritabanına kaydet
             int kayitId = kayitIslemDAO.insertKayitIslem(kayit);
 
             if (kayitId > 0) {
